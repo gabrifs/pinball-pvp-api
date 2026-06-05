@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/PinballPVP.Api/">
+    <Project Path="PinballPVP.Api/PinballPVP.Api.csproj" />
+  </Folder>
+</Solution>
