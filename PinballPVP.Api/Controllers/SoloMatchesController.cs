@@ -22,57 +22,15 @@ public class SoloMatchesController : ControllerBase
     {
         IQueryable<SoloMatch> query = _context.SoloMatches;
         
-        if(!string.IsNullOrEmpty(period))
-        {
-            var now = DateTime.UtcNow.Date;
+        if(!IsValidPeriod(period))
+            return BadRequest($"Invalid period: {period} (Valid periods are: week, month, year)");
 
-            switch (period)
-            {
-                case "week":
-                    {
-                        var startOfWeek = now
-                            .AddDays(-(int)now.DayOfWeek);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfWeek);
-                        break;
-                    }
-
-                case "month":
-                    {
-                        var startOfMonth = new DateTime(
-                            now.Year,
-                            now.Month,
-                            1);
-
-                        var startOfNextMonth = startOfMonth.AddMonths(1);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfMonth &&
-                                match.PlayedAt < startOfNextMonth);
-                        break;
-                    }
-
-                case "year":
-                    {
-                        var startOfYear = new DateTime(
-                            now.Year, 1, 1);
-
-                        var startOfNextYear = startOfYear.AddYears(1);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfYear &&
-                                match.PlayedAt < startOfNextYear);
-                        break;
-                    }
-            }
-        }
+        query = ApplyPeriodFilter(query, period);
 
         var matches = await query
-            .OrderBy(match => match.PlayedAt)
+            .AsNoTracking()
+            .OrderByDescending(match => match.PlayedAt)
+            .Select(SoloMatchResponseDto.Projection)
             .ToListAsync();
 
         return Ok(matches);
@@ -81,69 +39,30 @@ public class SoloMatchesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<SoloMatch>> GetMatch(int id)
     {
-        var matches = _context.SoloMatches
-            .FirstOrDefaultAsync(match => match.Id == id);
+        var match = _context.SoloMatches
+            .AsNoTracking()
+            .Where(match => match.Id == id)
+            .Select(SoloMatchResponseDto.Projection)
+            .FirstOrDefaultAsync();
 
-        return Ok(matches);
+        return Ok(match);
     }
 
     [HttpGet("user/{userId}")]
-    public async Task<ActionResult<SoloMatch>> GetUserMatches(int userId, string? period)
+    public async Task<ActionResult<List<SoloMatch>>> GetUserMatches(int userId, string? period)
     {
         IQueryable<SoloMatch> query = _context.SoloMatches
             .Where(match => match.UserId == userId);
         
-        if(!string.IsNullOrEmpty(period))
-        {
-            var now = DateTime.UtcNow.Date;
+        if(!IsValidPeriod(period))
+            return BadRequest($"Invalid period: {period} (Valid periods are: week, month, year)");
 
-            switch (period)
-            {
-                case "week":
-                    {
-                        var startOfWeek = now
-                            .AddDays(-(int)now.DayOfWeek);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfWeek);
-                        break;
-                    }
-
-                case "month":
-                    {
-                        var startOfMonth = new DateTime(
-                            now.Year,
-                            now.Month,
-                            1);
-
-                        var startOfNextMonth = startOfMonth.AddMonths(1);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfMonth &&
-                                match.PlayedAt < startOfNextMonth);
-                        break;
-                    }
-
-                case "year":
-                    {
-                        var startOfYear = new DateTime(
-                            now.Year, 1, 1);
-
-                        var startOfNextYear = startOfYear.AddYears(1);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfYear &&
-                                match.PlayedAt < startOfNextYear);
-                        break;
-                    }
-            }
-        }
+        query = ApplyPeriodFilter(query, period);
 
         var matches = await query
-            .OrderBy(match => match.PlayedAt)
+            .AsNoTracking()
+            .OrderByDescending(match => match.PlayedAt)
+            .Select(SoloMatchResponseDto.Projection)
             .ToListAsync();
 
         return Ok(matches);
@@ -154,7 +73,8 @@ public class SoloMatchesController : ControllerBase
     {
         var user = await _context.Users
             .Include(user => user.PlayerRecord)
-            .FirstOrDefaultAsync(user => user.Id == dto.UserId);
+            .Where(user => user.Id == dto.UserId)
+            .FirstOrDefaultAsync();
 
         if(user == null)
         {
@@ -192,6 +112,85 @@ public class SoloMatchesController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        return Ok(match);
+        return CreatedAtAction(
+            nameof(GetMatch),
+            new { id = match.Id },
+            SoloMatchResponseDto.FromEntity(match)
+        );
+    }
+
+    private static bool IsValidPeriod(string? period)
+    {
+        if(string.IsNullOrEmpty(period))
+            return true;
+
+        switch (period.ToLower())
+            {
+                case "week":
+                case "month":
+                case "year":
+                    {
+                        return true;
+                    }
+
+                default:
+                    {
+                        return false;
+                    }
+            }
+    }
+
+    private static IQueryable<SoloMatch> ApplyPeriodFilter(IQueryable<SoloMatch> query, string? period)
+    {
+        if(!string.IsNullOrEmpty(period))
+        {
+            var now = DateTime.UtcNow.Date;
+
+            switch (period.ToLower())
+            {
+                case "week":
+                    {
+                        var startOfWeek = now
+                            .AddDays(-(int)now.DayOfWeek);
+
+                        query = query
+                            .Where(match => 
+                                match.PlayedAt >= startOfWeek);
+                        break;
+                    }
+
+                case "month":
+                    {
+                        var startOfMonth = new DateTime(
+                            now.Year,
+                            now.Month,
+                            1);
+
+                        var startOfNextMonth = startOfMonth.AddMonths(1);
+
+                        query = query
+                            .Where(match => 
+                                match.PlayedAt >= startOfMonth &&
+                                match.PlayedAt < startOfNextMonth);
+                        break;
+                    }
+
+                case "year":
+                    {
+                        var startOfYear = new DateTime(
+                            now.Year, 1, 1);
+
+                        var startOfNextYear = startOfYear.AddYears(1);
+
+                        query = query
+                            .Where(match => 
+                                match.PlayedAt >= startOfYear &&
+                                match.PlayedAt < startOfNextYear);
+                        break;
+                    }
+            }
+        }
+
+        return query;
     }
 }

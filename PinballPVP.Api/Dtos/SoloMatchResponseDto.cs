@@ -3,7 +3,7 @@ using PinballPVP.Api.Models;
 
 namespace PinballPVP.Api.Dtos;
 
-public record SoloMatchDto(
+public record SoloMatchResponseDto(
     int Id,
 
     int UserId,
@@ -14,9 +14,9 @@ public record SoloMatchDto(
     DateTime PlayedAt
 )
 {
-    public static readonly Expression<Func<SoloMatch, SoloMatchDto>>
+    public static readonly Expression<Func<SoloMatch, SoloMatchResponseDto>>
         Projection =
-            match => new SoloMatchDto
+            match => new SoloMatchResponseDto
             (
                 match.Id,
                 match.UserId,
@@ -26,9 +26,9 @@ public record SoloMatchDto(
                 match.PlayedAt
             );
 
-    public static SoloMatchDto FromEntity(SoloMatch match)
+    public static SoloMatchResponseDto FromEntity(SoloMatch match)
     {
-        return new SoloMatchDto
+        return new SoloMatchResponseDto
             (
                 match.Id,
                 match.UserId,
