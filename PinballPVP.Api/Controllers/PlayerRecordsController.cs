@@ -17,5 +17,18 @@ public class PlayerRecordsController : ControllerBase
         _context = context;
     }
 
-    
+    [HttpGet("{id}")]
+    public async Task<ActionResult<PlayerRecordResponseDto>> GetPlayerRecord(int id)
+    {
+        var playerRecord = await _context.PlayerRecords
+            .AsNoTracking()
+            .Where(playerRecord => playerRecord.UserId == id)
+            .Select(PlayerRecordResponseDto.Projection)
+            .FirstOrDefaultAsync();
+
+        if(playerRecord == null)
+            return NotFound();
+
+        return Ok(playerRecord);
+    }
 }
