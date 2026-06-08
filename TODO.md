@@ -5,12 +5,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Security
 
-- [ ] **Stop committing secrets.** `appsettings.Development.json` currently has a real database password and a
-      JWT signing key checked into git. Move these to `dotnet user-secrets`, environment variables, or a secrets
-      manager (e.g. Azure Key Vault / AWS Secrets Manager) for any non-local environment, and rotate the
-      committed key/password once they're out of the repo's history.
-- [ ] **Add rate limiting** on `POST /api/auth` (login) and `POST /api/users` (registration) to slow down
-      brute-force and spam-account attempts.
 - [ ] **Configure CORS** for the origins the Unity client will call from (especially important for WebGL builds).
 - [ ] **Add refresh tokens / a revocation strategy.** A JWT currently can't be invalidated before it expires —
       there's no logout, and a compromised account's token stays valid until `ExpirationMinutes` runs out.
@@ -43,6 +37,14 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## API design
 
+- [ ] **Fix the `WinnerNickame`/`LoserNickame` typo in `VersusMatchResponseDto`.** Both the record
+      properties and the `Projection`/`FromEntity` mappings are missing the 'n' (`Nickname` → `Nickame`).
+      This is a public API contract field name, so it's cheap to fix now but becomes a breaking change
+      once the Unity client integrates against it — worth doing before that happens.
+- [ ] **Add validation attributes to `CreateSoloMatchDto`/`CreateVersusMatchDto`.** Unlike `CreateUserDto`/
+      `LoginDto`, these have no `[Range]`/`[Required]` attributes on `FinalScore`, `RoundsWon`,
+      `WinnerFinalScore`, etc. — a client can currently submit negative or nonsensical scores, which would
+      corrupt highscores and win/loss aggregates (and, on a commercial leaderboard, be trivially exploitable).
 - [ ] **Add pagination** to the list endpoints (`GET /api/users`, `GET /api/solomatches`,
       `GET /api/versusmatches`) — they currently load and return entire tables, which won't scale as match
       history grows.
@@ -54,14 +56,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
       it's the headline feature the in-game leaderboard display depends on.
 - [ ] **Add API versioning** before the Unity client locks onto the current contract, so the API can evolve
       without breaking shipped game builds.
-
-## Cleanup
-
-- [x] ~~Remove the unused `Microsoft.EntityFrameworkCore.Sqlite` package reference~~ — only the Npgsql
-      provider is configured/used. Removed via `dotnet remove package`.
-- [x] ~~Stop tracking `bin`/`obj` in git~~ — untracked the ~227 build-output files that were committed before
-      `.gitignore` was added (`git rm -r --cached PinballPVP.Api/bin PinballPVP.Api/obj`); they stay on disk
-      but no longer show up as modified in `git status`.
 
 ## Deployment
 

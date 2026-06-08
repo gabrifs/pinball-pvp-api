@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Models;
 using PinballPVP.Api.Services.Password;
+using PinballPVP.Api.Services.RateLimiting;
 
 namespace PinballPVP.Api.Controllers;
 
@@ -49,6 +51,7 @@ public class UsersController : ControllerBase
     }
 
     // POST /api/users
+    [EnableRateLimiting(RateLimiterPolicyNames.AuthEndpoints)]
     [HttpPost]
     public async Task<ActionResult> CreateUser(CreateUserDto dto)
     {

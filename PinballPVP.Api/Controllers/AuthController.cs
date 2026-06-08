@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Services.Auth;
 using PinballPVP.Api.Services.Password;
+using PinballPVP.Api.Services.RateLimiting;
 
 namespace PinballPVP.Api.Controllers;
 
@@ -19,6 +21,7 @@ public class AuthController(
     private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
 
     // POST /api/auth
+    [EnableRateLimiting(RateLimiterPolicyNames.AuthEndpoints)]
     [HttpPost]
     public async Task<ActionResult<LoginResponseDto>> Login(LoginDto dto)
     {
