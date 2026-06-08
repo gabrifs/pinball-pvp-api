@@ -13,7 +13,7 @@ public class User()
     public required string Username { get; set; }
     public required string Nickname { get; set; }
     public required string Email { get; set; }
-    public required string Password { get; set; }
+    public required string PasswordHash { get; set; }
 
     public PlayerRecord PlayerRecord { get; set; } = null!; // One-to-One connection
 }

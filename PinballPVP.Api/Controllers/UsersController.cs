@@ -69,7 +69,7 @@ public class UsersController : ControllerBase
             Username = dto.Username,
             Nickname = dto.Nickname,
             Email = dto.Email,
-            Password = dto.Password,
+            PasswordHash = dto.PasswordHash,
 
             PlayerRecord = new PlayerRecord()
         };

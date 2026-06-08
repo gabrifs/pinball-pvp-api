@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PinballPVP.Api.Data;
@@ -11,9 +12,11 @@ using PinballPVP.Api.Data;
 namespace PinballPVP.Api.Migrations
 {
     [DbContext(typeof(PinballPVPContext))]
-    partial class PinballPVPContextModelSnapshot : ModelSnapshot
+    [Migration("20260608101227_DesktopMigration")]
+    partial class DesktopMigration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -115,10 +118,10 @@ namespace PinballPVP.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("nickname");
 
-                    b.Property<string>("PasswordHash")
+                    b.Property<string>("Password")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("password_hash");
+                        .HasColumnName("password");
 
                     b.Property<string>("Username")
                         .IsRequired()
