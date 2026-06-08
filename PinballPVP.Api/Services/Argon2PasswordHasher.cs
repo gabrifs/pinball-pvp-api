@@ -9,8 +9,8 @@ public class Argon2PasswordHasher : IPasswordHasher
         return Argon2.Hash(password);
     }
 
-    public bool Verify(string password, string storedHash)
+    public bool Verify(string encodedHash, string password)
     {
-        return Argon2.Verify(password, storedHash);
+        return Argon2.Verify(encodedHash, password);
     }
 }
