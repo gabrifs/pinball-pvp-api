@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
+using PinballPVP.Api.Extensions;
 using PinballPVP.Api.Models;
 
 namespace PinballPVP.Api.Controllers;
@@ -79,6 +81,7 @@ public class VersusMatchesController : ControllerBase
         return Ok(matches);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<VersusMatchResponseDto>> CreateMatch(CreateVersusMatchDto dto)
     {
@@ -86,6 +89,12 @@ public class VersusMatchesController : ControllerBase
         {
             return BadRequest("Winner and loser cannot be the same");
         }
+
+        // Only a participant (the host reporting the match result) may submit it
+        var reporterId = User.GetUserId();
+
+        if(reporterId != dto.WinnerId && reporterId != dto.LoserId)
+            return Forbid();
 
         var users = await _context.Users
             .Include(user => user.PlayerRecord)

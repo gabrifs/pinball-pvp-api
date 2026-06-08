@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
+using PinballPVP.Api.Extensions;
 using PinballPVP.Api.Models;
 
 namespace PinballPVP.Api.Controllers;
@@ -78,20 +80,20 @@ public class SoloMatchesController : ControllerBase
         return Ok(matches);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<SoloMatchResponseDto>> CreateMatch(CreateSoloMatchDto dto)
     {
-        var users = await _context.Users
-            .Include(user => user.PlayerRecord)
-            .Where(user => 
-                user.Id == dto.UserId)
-            .ToListAsync();
+        if(User.GetUserId() != dto.UserId)
+            return Forbid();
 
-        var user = users.FirstOrDefault(user => user.Id == dto.UserId);
+        var user = await _context.Users
+            .Include(user => user.PlayerRecord)
+            .FirstOrDefaultAsync(user => user.Id == dto.UserId);
 
         if(user == null)
         {
-            return BadRequest("One or more users don't exist");
+            return BadRequest("User doesn't exist");
         }
 
         var match = new SoloMatch
