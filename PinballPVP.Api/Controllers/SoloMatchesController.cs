@@ -18,7 +18,7 @@ public class SoloMatchesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<SoloMatch>> GetMatches(string? period)
+    public async Task<ActionResult<List<SoloMatchResponseDto>>> GetMatches(string? period)
     {
         IQueryable<SoloMatch> query = _context.SoloMatches;
         
@@ -37,22 +37,32 @@ public class SoloMatchesController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<SoloMatch>> GetMatch(int id)
+    public async Task<ActionResult<SoloMatchResponseDto>> GetMatch(int id)
     {
-        var match = _context.SoloMatches
+        var match = await _context.SoloMatches
             .AsNoTracking()
             .Where(match => match.Id == id)
             .Select(SoloMatchResponseDto.Projection)
             .FirstOrDefaultAsync();
 
+        if(match == null)
+            return NotFound();
+
         return Ok(match);
     }
 
     [HttpGet("user/{userId}")]
-    public async Task<ActionResult<List<SoloMatch>>> GetUserMatches(int userId, string? period)
+    public async Task<ActionResult<List<SoloMatchResponseDto>>> GetUserMatches(int userId, string? period)
     {
+        var userExists = await _context.Users
+            .AnyAsync(user => user.Id == userId);
+
+        if(!userExists)
+            return NotFound();
+
         IQueryable<SoloMatch> query = _context.SoloMatches
-            .Where(match => match.UserId == userId);
+            .Where(match =>
+                match.UserId == userId);
         
         if(!IsValidPeriod(period))
             return BadRequest($"Invalid period: {period} (Valid periods are: week, month, year)");
@@ -69,21 +79,25 @@ public class SoloMatchesController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> CreateMatch(CreateSoloMatchDto dto)
+    public async Task<ActionResult<SoloMatchResponseDto>> CreateMatch(CreateSoloMatchDto dto)
     {
-        var user = await _context.Users
+        var users = await _context.Users
             .Include(user => user.PlayerRecord)
-            .Where(user => user.Id == dto.UserId)
-            .FirstOrDefaultAsync();
+            .Where(user => 
+                user.Id == dto.UserId)
+            .ToListAsync();
+
+        var user = users.FirstOrDefault(user => user.Id == dto.UserId);
 
         if(user == null)
         {
-            return BadRequest("User don't exist");
+            return BadRequest("One or more users don't exist");
         }
 
         var match = new SoloMatch
         {
             UserId = dto.UserId,
+            User = user,
             FinalScore = dto.FinalScore,
             RoundsWon = dto.RoundsWon,
             HasWon = dto.HasWon,
@@ -92,14 +106,10 @@ public class SoloMatchesController : ControllerBase
         };
 
         // Update win/loss count
-        if (match.HasWon)
-        {
+        if(match.HasWon)
             user.PlayerRecord.SoloWins++;
-        }
         else
-        {
             user.PlayerRecord.SoloLosses++;
-        }
 
         // Update Highscores
         user.PlayerRecord.SoloHighscore = Math.Max(
