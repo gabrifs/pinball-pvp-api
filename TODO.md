@@ -57,11 +57,11 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Cleanup
 
-- [ ] **Remove the unused `Microsoft.EntityFrameworkCore.Sqlite` package reference** — only the Npgsql
-      provider is configured/used.
-- [ ] **Stop tracking `bin/`/`obj/` in git.** They're covered by `.gitignore` but ~227 build-output files are
-      still tracked from before the `.gitignore` was added (`git rm -r --cached PinballPVP.Api/bin
-      PinballPVP.Api/obj`), which is why they keep showing up as modified in `git status`.
+- [x] ~~Remove the unused `Microsoft.EntityFrameworkCore.Sqlite` package reference~~ — only the Npgsql
+      provider is configured/used. Removed via `dotnet remove package`.
+- [x] ~~Stop tracking `bin`/`obj` in git~~ — untracked the ~227 build-output files that were committed before
+      `.gitignore` was added (`git rm -r --cached PinballPVP.Api/bin PinballPVP.Api/obj`); they stay on disk
+      but no longer show up as modified in `git status`.
 
 ## Deployment
 
