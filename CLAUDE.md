@@ -1,0 +1,93 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project overview
+
+PinballPVP.Api is an ASP.NET Core Web API (.NET 10) backing a Unity head-to-head pinball game. It exposes
+REST endpoints for user accounts/auth, solo matches (vs CPU), versus matches (P2P player vs player), and
+aggregated player records, persisting to PostgreSQL via EF Core. A leaderboards feature is planned but not
+yet implemented (`Dtos/Leaderboards/` exists as an empty placeholder folder).
+
+**This project serves a dual purpose: it's both a portfolio piece and the backend for a commercial game.**
+That raises the bar on code quality, security, and production-readiness beyond what a typical hobby/learning
+project would need — treat shortcuts and "good enough for now" choices with extra scrutiny, since both a
+prospective employer/client and real paying players may end up depending on this code.
+
+See [TODO.md](TODO.md) for the production-readiness roadmap (security hardening, observability, testing, etc.).
+
+## Directives to always follow
+
+- Strive to follow S.O.L.I.D. principles.
+- Keep code clean and comprehensible — favor the existing conventions in this codebase over introducing new patterns.
+- Always use the modern Gold Standard on all features (current language/framework idioms and best practices — e.g. .NET 10 / C# latest, EF Core current APIs — rather than outdated or legacy approaches).
+- Update this file (CLAUDE.md) whenever a change is made that's worth documenting here — new architecture, conventions, gotchas, etc.
+- Always update README.md when a change might affect what it documents (features, setup steps, API surface, project structure).
+- Always update TODO.md when working on items related to it — remove items once they're completed (rather
+  than leaving them checked off; TODO.md is a roadmap of what's left, and git history already documents
+  what was done and why), and add newly-discovered items.
+- **Never write secrets or sensitive data into any tracked file** — connection strings, signing/API keys,
+  passwords, tokens, certificates, etc. must only ever live in `dotnet user-secrets` (local dev) or
+  environment variables/a secrets manager (other environments); see [Claude/auth.md](Claude/auth.md) and the
+  `user-secrets` note under [EF Core migrations](#ef-core-migrations). Once committed, a secret is in git
+  history permanently (even if later removed from the working tree) — treat any value that reaches a commit
+  as compromised and rotate it rather than relying on a follow-up commit to "remove" it.
+- When a feature area grows enough conventions to need documenting, add a new file under `Claude/` rather
+  than growing this file inline — see [Feature-specific conventions](#feature-specific-conventions-claude)
+  below for the existing examples and the rationale.
+
+## Commands
+
+Run all commands from the repo root (`PinballPVP.slnx`) or from `PinballPVP.Api/`.
+
+- Build: `dotnet build`
+- Run (dev server with hot reload): `dotnet watch run --project PinballPVP.Api`
+- Run (no watch): `dotnet run --project PinballPVP.Api`
+- Swagger UI is available at `/swagger` when running in the `Development` environment (launch profiles use `http://localhost:5044` / `https://localhost:7240`).
+
+There is currently no test project in the solution, so there are no test commands to run.
+
+### EF Core migrations
+
+The DB context is `PinballPVP.Api.Data.PinballPVPContext`, mapped to PostgreSQL with snake_case column/table
+naming (via `EFCore.NamingConventions` + `UseSnakeCaseNamingConvention()`).
+
+- Add a migration: `dotnet ef migrations add <Name> --project PinballPVP.Api`
+- Apply migrations to the DB: `dotnet ef database update --project PinballPVP.Api`
+- The connection string key is `ConnectionStrings:DefaultConnection` (a local Postgres instance on port 5431,
+  db `pinballpvp`, by convention).
+
+> **Note:** `ConnectionStrings:DefaultConnection` and `Jwt:Key` are loaded from `dotnet user-secrets`
+> (the project has a `UserSecretsId`) — `appsettings.Development.json` ships with these blank intentionally.
+> Set them locally with `dotnet user-secrets set "ConnectionStrings:DefaultConnection" "..."` and
+> `dotnet user-secrets set "Jwt:Key" "..."` from the `PinballPVP.Api/` directory. Never put real secrets back
+> into a checked-in `appsettings*.json` file.
+
+## Architecture
+
+### Layering
+
+Requests flow `Controller -> PinballPVPContext (EF Core DbContext) -> PostgreSQL`. There is no separate
+repository layer — controllers talk to the `DbContext` directly. Cross-cutting concerns that don't belong in
+a controller (password hashing, JWT issuing) are extracted into `Services/` and injected via DI. DTOs live in
+`Dtos/` and are the boundary between EF entities (`Models/`) and the wire format; entities are never returned
+directly from endpoints.
+
+### Feature-specific conventions (`Claude/`)
+
+The detailed, per-area conventions below used to live inline here — they've been split into standalone files
+under `Claude/` so this file stays manageable as the project grows. They are **not** auto-loaded; read the
+relevant one before working in that area, and add new ones here following the same pattern as the codebase
+gains features:
+
+- [Claude/entities.md](Claude/entities.md) — `Models/` entity relationships and how `PlayerRecord` aggregates
+  are maintained as a side effect of match creation.
+- [Claude/dtos.md](Claude/dtos.md) — the `Projection`/`FromEntity` convention every response DTO follows, and
+  how request DTOs are validated.
+- [Claude/auth.md](Claude/auth.md) — JWT authentication setup and gotchas, the rate limiting policy on
+  `/api/auth` and `/api/users`, and the "caller must be a named participant" authorization pattern for match
+  creation.
+- [Claude/controllers.md](Claude/controllers.md) — routing, DI, read/write endpoint conventions, and the
+  duplicated period-filter helpers worth consolidating.
+- [Claude/persistence.md](Claude/persistence.md) — what `Program.cs` wires up, middleware ordering, and the
+  server-side `PlayedAt` timestamp rule.
