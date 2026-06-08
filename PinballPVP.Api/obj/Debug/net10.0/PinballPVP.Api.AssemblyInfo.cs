@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PinballPVP.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+704863984458e5727b9fceb83ce4693c9f03f284")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b76b2dd2a55b4f781de2145ab7a5c58dd7c71279")]
 [assembly: System.Reflection.AssemblyProductAttribute("PinballPVP.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PinballPVP.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
