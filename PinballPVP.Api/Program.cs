@@ -1,10 +1,14 @@
+using System.Globalization;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Services.Auth;
 using PinballPVP.Api.Services.Password;
+using PinballPVP.Api.Services.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddValidation(); // Make sure to add validation services
@@ -59,6 +63,34 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// Rate limiting — throttles abuse-prone, unauthenticated endpoints (login, registration) per client IP
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy(RateLimiterPolicyNames.AuthEndpoints, httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 4,
+                QueueLimit = 0
+            }));
+
+    options.OnRejected = (context, _) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)retryAfter.TotalSeconds).ToString(NumberFormatInfo.InvariantInfo);
+        }
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+        return ValueTask.CompletedTask;
+    };
+});
+
 var app = builder.Build();
 
 // Swagger UI
@@ -69,6 +101,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

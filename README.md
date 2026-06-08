@@ -55,22 +55,17 @@ PinballPVP.Api/
    dotnet restore
    ```
 
-2. Configure your database connection string and JWT settings in `PinballPVP.Api/appsettings.Development.json`
-   (or, preferably, via `dotnet user-secrets` so you don't commit them):
+2. Configure your database connection string and JWT signing key as [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets)
+   — `appsettings.Development.json` intentionally ships with these blank so nothing sensitive is committed:
 
-   ```json
-   {
-     "ConnectionStrings": {
-       "DefaultConnection": "Host=localhost;Port=5432;Database=pinballpvp;Username=<user>;Password=<password>"
-     },
-     "Jwt": {
-       "Key": "<a long random signing secret>",
-       "Issuer": "PinballPVP.Api",
-       "Audience": "PinballPVP.Client",
-       "ExpirationMinutes": 60
-     }
-   }
+   ```bash
+   cd PinballPVP.Api
+   dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=pinballpvp;Username=<user>;Password=<password>"
+   dotnet user-secrets set "Jwt:Key" "<a long random signing secret>"
    ```
+
+   The non-sensitive `Jwt` settings (`Issuer`, `Audience`, `ExpirationMinutes`) still live in
+   `appsettings.Development.json` and don't need to be overridden locally.
 
 3. Apply the database migrations:
 
@@ -122,6 +117,12 @@ The API identifies the caller from the JWT's `sub` claim (the user's id) — pro
 endpoints check that the authenticated user is actually one of the players named in the request body
 (e.g. for versus matches, the winner or the loser, since either may act as the P2P host reporting the
 result) and respond `403 Forbidden` otherwise.
+
+### Rate limiting
+
+`POST /api/auth` (login) and `POST /api/users` (registration) are unauthenticated and abuse-prone, so both
+share a sliding-window rate limit per client IP (5 requests/minute). Exceeding it returns
+`429 Too Many Requests` with a `Retry-After` header indicating how long to wait before retrying.
 
 ## Database migrations
 
