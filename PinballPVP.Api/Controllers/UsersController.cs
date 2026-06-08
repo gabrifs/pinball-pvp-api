@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Models;
+using PinballPVP.Api.Services.Password;
 
 namespace PinballPVP.Api.Controllers;
 
@@ -11,10 +12,12 @@ namespace PinballPVP.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly PinballPVPContext _context;
+    private IPasswordHasher _passwordHasher;
 
-    public UsersController(PinballPVPContext context)
+    public UsersController(PinballPVPContext context, IPasswordHasher passwordHasher)
     {
         _context = context;
+        _passwordHasher = passwordHasher;
     }
 
     // GET /api/users
@@ -69,7 +72,7 @@ public class UsersController : ControllerBase
             Username = dto.Username,
             Nickname = dto.Nickname,
             Email = dto.Email,
-            PasswordHash = dto.PasswordHash,
+            PasswordHash =  _passwordHasher.Hash(dto.Password),
 
             PlayerRecord = new PlayerRecord()
         };

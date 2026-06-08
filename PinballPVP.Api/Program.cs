@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
+using PinballPVP.Api.Services.Password;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddValidation(); // Make sure to add validation services
@@ -17,6 +19,9 @@ builder.Services.AddControllers();
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Application Services
+builder.Services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
 
 var app = builder.Build();
 

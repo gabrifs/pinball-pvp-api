@@ -28,31 +28,48 @@
           }
         }
       },
-      "Konscious.Security.Cryptography.Argon2/1.3.1": {
+      "Isopoh.Cryptography.Argon2/2.0.0": {
         "type": "package",
         "dependencies": {
-          "Konscious.Security.Cryptography.Blake2": "1.1.1"
+          "Isopoh.Cryptography.Blake2b": "2.0.0",
+          "Isopoh.Cryptography.SecureArray": "2.0.0"
         },
         "compile": {
-          "lib/net8.0/Konscious.Security.Cryptography.Argon2.dll": {
+          "lib/net7.0/Isopoh.Cryptography.Argon2.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net8.0/Konscious.Security.Cryptography.Argon2.dll": {
+          "lib/net7.0/Isopoh.Cryptography.Argon2.dll": {
             "related": ".xml"
           }
         }
       },
-      "Konscious.Security.Cryptography.Blake2/1.1.1": {
+      "Isopoh.Cryptography.Blake2b/2.0.0": {
         "type": "package",
+        "dependencies": {
+          "Isopoh.Cryptography.SecureArray": "2.0.0"
+        },
         "compile": {
-          "lib/net8.0/Konscious.Security.Cryptography.Blake2.dll": {
+          "lib/net7.0/Isopoh.Cryptography.Blake2b.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net8.0/Konscious.Security.Cryptography.Blake2.dll": {
+          "lib/net7.0/Isopoh.Cryptography.Blake2b.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Isopoh.Cryptography.SecureArray/2.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net7.0/Isopoh.Cryptography.SecureArray.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net7.0/Isopoh.Cryptography.SecureArray.dll": {
             "related": ".xml"
           }
         }
@@ -989,42 +1006,70 @@
         "logo.png"
       ]
     },
-    "Konscious.Security.Cryptography.Argon2/1.3.1": {
-      "sha512": "T+OAGwzYYXftahpOxO7J4xA5K6urxwGnWQf3M+Jpi+76Azv/0T3M5SuN+h7/QvXuiqNw3ZEZ5QqVLI5ygDAylw==",
+    "Isopoh.Cryptography.Argon2/2.0.0": {
+      "sha512": "8ytWN19j+qARb/XYi7KkNMm4Z8zS6tfGgnsZ1N5ihbQ5LXfyL+uYowfJxtGW9TO0S8NM2q0BaTKGOtOlsrhclQ==",
       "type": "package",
-      "path": "konscious.security.cryptography.argon2/1.3.1",
+      "path": "isopoh.cryptography.argon2/2.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "konscious.security.cryptography.argon2.1.3.1.nupkg.sha512",
-        "konscious.security.cryptography.argon2.nuspec",
-        "lib/net46/Konscious.Security.Cryptography.Argon2.dll",
-        "lib/net46/Konscious.Security.Cryptography.Argon2.xml",
-        "lib/net6.0/Konscious.Security.Cryptography.Argon2.dll",
-        "lib/net6.0/Konscious.Security.Cryptography.Argon2.xml",
-        "lib/net8.0/Konscious.Security.Cryptography.Argon2.dll",
-        "lib/net8.0/Konscious.Security.Cryptography.Argon2.xml",
-        "lib/netstandard1.3/Konscious.Security.Cryptography.Argon2.dll",
-        "lib/netstandard1.3/Konscious.Security.Cryptography.Argon2.xml"
+        "LICENSE",
+        "README.md",
+        "isopoh.cryptography.argon2.2.0.0.nupkg.sha512",
+        "isopoh.cryptography.argon2.nuspec",
+        "isopoh.png",
+        "lib/net6.0/Isopoh.Cryptography.Argon2.dll",
+        "lib/net6.0/Isopoh.Cryptography.Argon2.xml",
+        "lib/net7.0/Isopoh.Cryptography.Argon2.dll",
+        "lib/net7.0/Isopoh.Cryptography.Argon2.xml",
+        "lib/netcoreapp3.1/Isopoh.Cryptography.Argon2.dll",
+        "lib/netcoreapp3.1/Isopoh.Cryptography.Argon2.xml",
+        "lib/netstandard2.0/Isopoh.Cryptography.Argon2.dll",
+        "lib/netstandard2.0/Isopoh.Cryptography.Argon2.xml"
       ]
     },
-    "Konscious.Security.Cryptography.Blake2/1.1.1": {
-      "sha512": "odwOyzj/J/lHJZNwFWJGU/LRecBShupAJ2S8TQqZfhUe9niHzu/voBYK5wuVKsvSpzbfupKQYZguVyIk1sgOkQ==",
+    "Isopoh.Cryptography.Blake2b/2.0.0": {
+      "sha512": "Co56bjSZV13fpvYHEN04qG8hqc0rKRm4os8iEgpJ/kujvt0pYtOVhj5J0Q7HBPbHwpcChRh2CjYVCGm4nw85VQ==",
       "type": "package",
-      "path": "konscious.security.cryptography.blake2/1.1.1",
+      "path": "isopoh.cryptography.blake2b/2.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
-        "konscious.security.cryptography.blake2.1.1.1.nupkg.sha512",
-        "konscious.security.cryptography.blake2.nuspec",
-        "lib/net46/Konscious.Security.Cryptography.Blake2.dll",
-        "lib/net46/Konscious.Security.Cryptography.Blake2.xml",
-        "lib/net6.0/Konscious.Security.Cryptography.Blake2.dll",
-        "lib/net6.0/Konscious.Security.Cryptography.Blake2.xml",
-        "lib/net8.0/Konscious.Security.Cryptography.Blake2.dll",
-        "lib/net8.0/Konscious.Security.Cryptography.Blake2.xml",
-        "lib/netstandard1.3/Konscious.Security.Cryptography.Blake2.dll",
-        "lib/netstandard1.3/Konscious.Security.Cryptography.Blake2.xml"
+        "LICENSE",
+        "README.md",
+        "isopoh.cryptography.blake2b.2.0.0.nupkg.sha512",
+        "isopoh.cryptography.blake2b.nuspec",
+        "isopoh.png",
+        "lib/net6.0/Isopoh.Cryptography.Blake2b.dll",
+        "lib/net6.0/Isopoh.Cryptography.Blake2b.xml",
+        "lib/net7.0/Isopoh.Cryptography.Blake2b.dll",
+        "lib/net7.0/Isopoh.Cryptography.Blake2b.xml",
+        "lib/netcoreapp3.1/Isopoh.Cryptography.Blake2b.dll",
+        "lib/netcoreapp3.1/Isopoh.Cryptography.Blake2b.xml",
+        "lib/netstandard2.0/Isopoh.Cryptography.Blake2b.dll",
+        "lib/netstandard2.0/Isopoh.Cryptography.Blake2b.xml"
+      ]
+    },
+    "Isopoh.Cryptography.SecureArray/2.0.0": {
+      "sha512": "oWbRv/BTztKJxKFr3FBurWBBCgE1+nUTm3pwtA3Yg7Xeo4wDpaLstAwqx8HeQG3/b9yOs2qykpqfbNPJ40McIw==",
+      "type": "package",
+      "path": "isopoh.cryptography.securearray/2.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "README.md",
+        "isopoh.cryptography.securearray.2.0.0.nupkg.sha512",
+        "isopoh.cryptography.securearray.nuspec",
+        "isopoh.png",
+        "lib/net6.0/Isopoh.Cryptography.SecureArray.dll",
+        "lib/net6.0/Isopoh.Cryptography.SecureArray.xml",
+        "lib/net7.0/Isopoh.Cryptography.SecureArray.dll",
+        "lib/net7.0/Isopoh.Cryptography.SecureArray.xml",
+        "lib/netcoreapp3.1/Isopoh.Cryptography.SecureArray.dll",
+        "lib/netcoreapp3.1/Isopoh.Cryptography.SecureArray.xml",
+        "lib/netstandard2.0/Isopoh.Cryptography.SecureArray.dll",
+        "lib/netstandard2.0/Isopoh.Cryptography.SecureArray.xml"
       ]
     },
     "Microsoft.Build.Framework/18.0.2": {
@@ -2997,7 +3042,7 @@
   "projectFileDependencyGroups": {
     "net10.0": [
       "EFCore.NamingConventions >= 10.0.1",
-      "Konscious.Security.Cryptography.Argon2 >= 1.3.1",
+      "Isopoh.Cryptography.Argon2 >= 2.0.0",
       "Microsoft.EntityFrameworkCore.Design >= 10.0.8",
       "Microsoft.EntityFrameworkCore.Sqlite >= 10.0.8",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 10.0.2",
@@ -3051,9 +3096,9 @@
             "target": "Package",
             "version": "[10.0.1, )"
           },
-          "Konscious.Security.Cryptography.Argon2": {
+          "Isopoh.Cryptography.Argon2": {
             "target": "Package",
-            "version": "[1.3.1, )"
+            "version": "[2.0.0, )"
           },
           "Microsoft.EntityFrameworkCore.Design": {
             "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
