@@ -119,6 +119,7 @@ obtained via `POST /api/auth`.
 | GET    | `/api/versusmatches/{id}`          |      | Get a single versus match                                   |
 | GET    | `/api/versusmatches/user/{userId}` |      | List a user's versus matches                                |
 | POST   | `/api/versusmatches`               |  🔒  | Submit a versus match result — see dual-confirmation below  |
+| GET    | `/health`                          |      | Health check — reports database connectivity status         |
 
 ### Authentication
 
@@ -153,6 +154,18 @@ falsifying a result:
 `POST /api/auth` (login) and `POST /api/users` (registration) are unauthenticated and abuse-prone, so both
 share a sliding-window rate limit per client IP (5 requests/minute). Exceeding it returns
 `429 Too Many Requests` with a `Retry-After` header indicating how long to wait before retrying.
+
+### Observability
+
+All request logs are written via **Serilog**. In development, logs are human-readable console output; in
+production the default configuration emits compact JSON suitable for log aggregators (Seq, Datadog, etc.).
+
+Every HTTP response includes an `X-Correlation-ID` header — a unique ID for that request. If a client
+reports an error, that ID can be used to grep logs and retrieve the complete trace for the offending request.
+Clients may also send their own `X-Correlation-ID` on the way in to propagate a cross-service trace ID.
+
+`GET /health` returns `200 OK` when the API and its database connection are healthy, `503 Service
+Unavailable` otherwise — suitable for container orchestration liveness/readiness probes and uptime monitors.
 
 ## Database migrations
 

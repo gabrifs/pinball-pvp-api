@@ -3,17 +3,6 @@
 A roadmap of what's still needed to take PinballPVP.Api from its current development state to a
 production-ready backend for the Unity head-to-head pinball game. Items are grouped by area, not by priority.
 
-## Reliability & observability
-
-- [ ] **Add global exception handling** (`UseExceptionHandler` / `IExceptionHandler`) so unexpected errors
-      return a consistent `ProblemDetails` body instead of raw 500s with stack traces.
-- [ ] **Add structured logging** (e.g. Serilog) with request correlation IDs — `appsettings.json` only has the
-      default console logger configuration today.
-- [ ] **Add health check endpoints** (`/health`) covering the database connection — needed for container
-      orchestration / load balancers / uptime monitoring.
-- [ ] **Add DB connection resiliency** (`EnableRetryOnFailure`) so transient Postgres blips don't surface as
-      request failures.
-
 ## Testing
 
 - [ ] **Add a test project.** There are currently no automated tests in the solution — at minimum, cover the
