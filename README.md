@@ -74,11 +74,13 @@ PinballPVP.Api/
    cd PinballPVP.Api
    dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=pinballpvp;Username=<user>;Password=<password>"
    dotnet user-secrets set "Jwt:Key" "<a long random signing secret>"
+   dotnet user-secrets set "Email:Username" "<smtp username>"
+   dotnet user-secrets set "Email:Password" "<smtp password>"
    ```
 
-   The non-sensitive `Jwt` settings (`Issuer`, `Audience`, `ExpirationMinutes`) and the CORS
-   `AllowedOrigins` list still live in `appsettings.Development.json` and don't need to be overridden
-   locally. For **production**, set allowed origins via environment variables:
+   The non-sensitive `Jwt` settings (`Issuer`, `Audience`, `ExpirationMinutes`), the non-sensitive
+   `Email` settings (`Host`, `Port`, `FromAddress`, `FromName`), and the CORS `AllowedOrigins` list
+   still live in `appsettings.Development.json` and don't need to be overridden locally. For **production**, set allowed origins via environment variables:
 
    ```env
    Cors__AllowedOrigins__0=https://your-webgl-host.example.com
@@ -117,9 +119,12 @@ obtained via `POST /api/v1/auth`.
 | POST   | `/api/v1/auth`                          |      | Log in — returns a JWT access token and a refresh token     |
 | POST   | `/api/v1/auth/refresh`                  |      | Exchange a refresh token for a new access + refresh pair    |
 | POST   | `/api/v1/auth/logout`                   |  🔒  | Revoke the supplied refresh token                           |
+| POST   | `/api/v1/auth/forgot-password`          |      | Send a recovery code to the user's registered email         |
+| POST   | `/api/v1/auth/reset-password`           |      | Validate a recovery code and set a new password             |
 | GET    | `/api/v1/users`                         |      | List users (paginated)                                      |
 | GET    | `/api/v1/users/{id}`                    |      | Get a single user                                           |
 | POST   | `/api/v1/users`                         |      | Register a new user                                         |
+| PATCH  | `/api/v1/users/{id}/nickname`           |  🔒  | Update your own nickname (caller must match `{id}`)         |
 | GET    | `/api/v1/users/playerrecords/{id}`      |      | Get a user's aggregated player record                       |
 | GET    | `/api/v1/solomatches`                   |      | List solo matches (paginated, optional `?period`)           |
 | GET    | `/api/v1/solomatches/{id}`              |      | Get a single solo match                                     |

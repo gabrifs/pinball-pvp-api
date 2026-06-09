@@ -3,6 +3,8 @@
 A roadmap of what's still needed to take PinballPVP.Api from its current development state to a
 production-ready backend for the Unity head-to-head pinball game. Items are grouped by area, not by priority.
 
+## Features
+
 ## Testing
 
 - [ ] **Add a test project.** There are currently no automated tests in the solution — at minimum, cover the

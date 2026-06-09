@@ -9,6 +9,7 @@ using PinballPVP.Api.Data;
 using Asp.Versioning;
 using PinballPVP.Api.Middleware;
 using PinballPVP.Api.Services.Auth;
+using PinballPVP.Api.Services.Email;
 using PinballPVP.Api.Services.ExceptionHandling;
 using PinballPVP.Api.Services.Health;
 using PinballPVP.Api.Services.Maintenance;
@@ -65,6 +66,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddHostedService<ExpiredRecordPurgeService>();
 
 // JWT Authentication

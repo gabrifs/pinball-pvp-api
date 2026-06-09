@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Extensions;
+using PinballPVP.Api.Models;
 using PinballPVP.Api.Services.Auth;
+using PinballPVP.Api.Services.Email;
 using PinballPVP.Api.Services.Password;
 using PinballPVP.Api.Services.RateLimiting;
 
@@ -19,12 +23,19 @@ public class AuthController(
     PinballPVPContext context,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
-    IRefreshTokenService refreshTokenService) : ControllerBase
+    IRefreshTokenService refreshTokenService,
+    IEmailService emailService,
+    IConfiguration configuration) : ControllerBase
 {
     private readonly PinballPVPContext _context = context;
     private readonly IPasswordHasher _passwordHasher = passwordHasher;
     private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
     private readonly IRefreshTokenService _refreshTokenService = refreshTokenService;
+    private readonly IEmailService _emailService = emailService;
+    private readonly IConfiguration _configuration = configuration;
+
+    private static string HashCode(string rawCode) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawCode))).ToLowerInvariant();
 
     // POST /api/auth
     [EnableRateLimiting(RateLimiterPolicyNames.AuthEndpoints)]
@@ -90,5 +101,70 @@ public class AuthController(
 
         await _refreshTokenService.RevokeAsync(existing);
         return NoContent();
+    }
+
+    // POST /api/auth/forgot-password
+    [EnableRateLimiting(RateLimiterPolicyNames.AuthEndpoints)]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == dto.UserId)
+            .Select(u => new { u.Email, u.Nickname })
+            .FirstOrDefaultAsync();
+
+        if (user is null)
+            return Ok(); // Don't reveal whether the user exists
+
+        // Invalidate any existing active codes before issuing a new one
+        await _context.PasswordRecoveryCodes
+            .Where(rc => rc.UserId == dto.UserId && !rc.Used && rc.ExpiresAt > DateTime.UtcNow)
+            .ExecuteUpdateAsync(s => s.SetProperty(rc => rc.Used, true));
+
+        var rawCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(4)); // 8 uppercase hex chars
+        var expirationMinutes = _configuration.GetValue<int>("PasswordRecovery:ExpirationMinutes", 15);
+
+        _context.PasswordRecoveryCodes.Add(new PasswordRecoveryCode
+        {
+            UserId    = dto.UserId,
+            CodeHash  = HashCode(rawCode),
+            ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
+        });
+
+        await _context.SaveChangesAsync();
+
+        await _emailService.SendPasswordRecoveryAsync(user.Email, user.Nickname, rawCode);
+
+        return Ok();
+    }
+
+    // POST /api/auth/reset-password
+    [EnableRateLimiting(RateLimiterPolicyNames.AuthEndpoints)]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+    {
+        var codeHash = HashCode(dto.RecoveryCode);
+
+        var recoveryCode = await _context.PasswordRecoveryCodes
+            .FirstOrDefaultAsync(rc =>
+                rc.UserId == dto.UserId &&
+                rc.CodeHash == codeHash &&
+                !rc.Used &&
+                rc.ExpiresAt > DateTime.UtcNow);
+
+        if (recoveryCode is null)
+            return BadRequest("Invalid or expired recovery code");
+
+        var user = await _context.Users.FindAsync(dto.UserId);
+        if (user is null)
+            return BadRequest("Invalid or expired recovery code");
+
+        recoveryCode.Used = true;
+        user.PasswordHash = _passwordHasher.Hash(dto.NewPassword);
+
+        await _context.SaveChangesAsync();
+
+        return Ok();
     }
 }
