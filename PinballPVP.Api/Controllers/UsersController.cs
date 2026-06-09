@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -105,5 +106,35 @@ public class UsersController(PinballPVPContext context, IPasswordHasher password
             new { id = user.Id },
             UserResponseDto.FromEntity(user)
         );
+    }
+
+    // PATCH /api/users/{id}/nickname
+    [Authorize]
+    [HttpPatch("{id}/nickname")]
+    public async Task<ActionResult<UserResponseDto>> UpdateNickname(int id, UpdateNicknameDto dto)
+    {
+        if (User.GetUserId() != id)
+            return Forbid();
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null)
+            return NotFound();
+
+        if (await _context.Users.AnyAsync(u => u.Nickname == dto.Nickname && u.Id != id))
+            return BadRequest("Nickname already in use");
+
+        user.Nickname = dto.Nickname;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: "ix_users_nickname" })
+        {
+            return BadRequest("Nickname already in use");
+        }
+
+        return Ok(UserResponseDto.FromEntity(user));
     }
 }
