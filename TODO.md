@@ -9,20 +9,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
       controller logic (auth checks, uniqueness validation, win/loss + highscore aggregation) and the
       period-filter helpers with unit tests, plus integration tests against a real (test) database.
 
-## API design
-
-- [ ] **Add pagination** to the list endpoints (`GET /api/users`, `GET /api/solomatches`,
-      `GET /api/versusmatches`) — they currently load and return entire tables, which won't scale as match
-      history grows.
-- [ ] **Consolidate the duplicated period-filter logic.** `IsValidPeriod`/`ApplyPeriodFilter` are implemented
-      nearly verbatim in both `SoloMatchesController` and `VersusMatchesController` — extract into a shared
-      service or extension method.
-- [ ] **Finish `PlayerRecordsController`** (currently only `GetPlayerRecord` exists) and **build out the
-      Leaderboards feature** — `Dtos/Leaderboards/` exists as a folder but has no DTOs or controller yet, and
-      it's the headline feature the in-game leaderboard display depends on.
-- [ ] **Add API versioning** before the Unity client locks onto the current contract, so the API can evolve
-      without breaking shipped game builds.
-
 ## Deployment
 
 - [ ] **Containerize the app** (Dockerfile) for consistent builds and deployment.
