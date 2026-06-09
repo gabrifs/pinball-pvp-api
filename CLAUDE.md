@@ -45,6 +45,21 @@ Run all commands from the repo root (`PinballPVP.slnx`) or from `PinballPVP.Api/
 - Run tests: `dotnet test` (requires Docker for Testcontainers)
 - Swagger UI is available at `/swagger` when running in the `Development` environment (launch profiles use `http://localhost:5044` / `https://localhost:7240`).
 
+### CI/CD
+
+The GitHub Actions workflow lives at [`.github/workflows/ci.yml`](.github/workflows/ci.yml). It runs on
+every push and PR to `master`:
+
+- **build-and-test** — restores, builds, and runs the full test suite (`dotnet test`). Docker must be
+  available on the runner because Testcontainers requires it; `ubuntu-latest` provides this automatically.
+- **docker** (master pushes only, after build-and-test) — builds the production Docker image and pushes
+  it to `ghcr.io/<owner>/<repo>` tagged `:latest` and `:sha-<short-sha>`. Uses `GITHUB_TOKEN` (no extra
+  secrets needed). GitHub layer caching (`type=gha`) keeps rebuilds fast.
+
+A deploy step is intentionally left as a comment placeholder — implement it once a hosting target is chosen.
+When you add it, run `dotnet ef database update` (or an EF bundle) against the production DB **before**
+rolling out the new container, not in the same step, to avoid downtime from a mid-migration restart.
+
 ### Docker
 
 A multi-stage `Dockerfile` lives at the repo root. Build and run with:
