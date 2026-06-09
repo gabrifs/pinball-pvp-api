@@ -135,6 +135,7 @@ obtained via `POST /api/v1/auth`.
 | GET    | `/api/v1/leaderboards/versus/highscore` |      | Versus leaderboard by highscore (paginated, `?period`)      |
 | GET    | `/api/v1/leaderboards/versus/wins`      |      | Versus leaderboard by wins (paginated, `?period`)           |
 | GET    | `/api/v1/leaderboards/versus/winrate`   |      | Versus leaderboard by win rate (paginated, `?period`)       |
+| GET    | `/api/v1/leaderboards/player/{userId}`  |      | All ranks for one player across every leaderboard category  |
 | GET    | `/health`                               |      | Health check — reports database connectivity status         |
 
 ### Authentication

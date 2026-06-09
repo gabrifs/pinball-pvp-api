@@ -47,9 +47,20 @@ filter as the match endpoints. Each response entry includes the full stat set fo
 | `GET /api/v1/leaderboards/versus/wins` | `Wins` desc |
 | `GET /api/v1/leaderboards/versus/winrate` | `Wins / (Wins + Losses) * 100` desc |
 
+**`GET /api/v1/leaderboards/player/{userId}?period=`** returns a single `PlayerRankDto` with all six
+ranks for that player in one call — intended for an in-game "your standings" screen. The response
+contains a `solo` and a `versus` section; either is `null` if the player has no matches in that mode
+within the selected period. Each section includes the player's stats plus three rank fields
+(`highscoreRank`, `winsRank`, `winRateRank`). Returns `404` if the user doesn't exist.
+
 **Data source:** leaderboards aggregate directly from `SoloMatches` / `VersusMatches` (not `PlayerRecord`)
 so the period filter is applied correctly. Players with no matches in the selected window don't appear,
 which also guarantees `Wins + Losses > 0` — division-by-zero is structurally impossible.
+
+**Aggregation helpers:** `GetSoloStatsAsync(period)` and `GetVersusStatsAsync(period)` are private
+methods that perform the DB queries and return `List<SoloStats>` / `List<VersusStats>`. Both the
+paginated endpoints and the player-rank endpoint call these helpers — the paginated path then sorts and
+slices, the rank path sorts three ways per mode and locates the player by `FindIndex`.
 
 **Solo aggregation:** single `GroupBy(m => new { m.UserId, m.User.Nickname })` on `SoloMatches` with
 `Max(FinalScore)`, `Count(HasWon)`, `Count(!HasWon)`. Translated to SQL via EF Core.
