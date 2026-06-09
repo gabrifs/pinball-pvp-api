@@ -2,4 +2,7 @@
   <Folder Name="/PinballPVP.Api/">
     <Project Path="PinballPVP.Api/PinballPVP.Api.csproj" />
   </Folder>
+  <Folder Name="/PinballPVP.Tests/">
+    <Project Path="PinballPVP.Tests/PinballPVP.Tests.csproj" />
+  </Folder>
 </Solution>

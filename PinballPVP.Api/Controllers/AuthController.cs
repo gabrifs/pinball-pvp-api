@@ -52,13 +52,19 @@ public class AuthController(
 
         // Single-session policy: revoke any existing tokens before issuing a new one.
         // This also cleans up dangling tokens from crashed/disconnected sessions.
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        await _refreshTokenService.RevokeAllForUserAsync(user.Id);
-        var accessToken = _jwtTokenService.GenerateToken(user);
-        var refreshToken = await _refreshTokenService.CreateAsync(user.Id);
-        await transaction.CommitAsync();
+        // ExecuteAsync is required by NpgsqlRetryingExecutionStrategy when using explicit transactions.
+        var strategy = _context.Database.CreateExecutionStrategy();
+        var tokens = await strategy.ExecuteAsync(async () =>
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            await _refreshTokenService.RevokeAllForUserAsync(user.Id);
+            var accessToken = _jwtTokenService.GenerateToken(user);
+            var refreshToken = await _refreshTokenService.CreateAsync(user.Id);
+            await transaction.CommitAsync();
+            return new LoginResponseDto(accessToken, refreshToken);
+        });
 
-        return Ok(new LoginResponseDto(accessToken, refreshToken));
+        return Ok(tokens);
     }
 
     // POST /api/auth/refresh
@@ -78,13 +84,19 @@ public class AuthController(
             return Unauthorized("User not found");
 
         // Rotate tokens atomically: revoke old, issue new
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        await _refreshTokenService.RevokeAsync(existing);
-        var newAccessToken = _jwtTokenService.GenerateToken(user);
-        var newRefreshToken = await _refreshTokenService.CreateAsync(user.Id);
-        await transaction.CommitAsync();
+        // ExecuteAsync is required by NpgsqlRetryingExecutionStrategy when using explicit transactions.
+        var strategy = _context.Database.CreateExecutionStrategy();
+        var tokens = await strategy.ExecuteAsync(async () =>
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            await _refreshTokenService.RevokeAsync(existing);
+            var newAccessToken = _jwtTokenService.GenerateToken(user);
+            var newRefreshToken = await _refreshTokenService.CreateAsync(user.Id);
+            await transaction.CommitAsync();
+            return new LoginResponseDto(newAccessToken, newRefreshToken);
+        });
 
-        return Ok(new LoginResponseDto(newAccessToken, newRefreshToken));
+        return Ok(tokens);
     }
 
     // POST /api/auth/logout

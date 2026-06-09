@@ -27,12 +27,17 @@ public static class PeriodFilterExtensions
 
     private static (DateTime Start, DateTime? End) GetPeriodRange(string period)
     {
-        var now = DateTime.UtcNow.Date;
+        var now = DateTime.UtcNow;
+        // Use explicit DateTimeKind.Utc — DateTime.Date strips the Kind to Unspecified,
+        // which Npgsql rejects when writing to a 'timestamp with time zone' column.
+        var today = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0, DateTimeKind.Utc);
         return period.ToLower() switch
         {
-            "week"  => (now.AddDays(-(int)now.DayOfWeek), null),
-            "month" => (new DateTime(now.Year, now.Month, 1), new DateTime(now.Year, now.Month, 1).AddMonths(1)),
-            "year"  => (new DateTime(now.Year, 1, 1),         new DateTime(now.Year + 1, 1, 1)),
+            "week"  => (today.AddDays(-(int)today.DayOfWeek), null),
+            "month" => (new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+                        new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1)),
+            "year"  => (new DateTime(now.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                        new DateTime(now.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
             _       => (DateTime.MinValue, null)
         };
     }

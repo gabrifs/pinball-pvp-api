@@ -6,8 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PinballPVP.Api is an ASP.NET Core Web API (.NET 10) backing a Unity head-to-head pinball game. It exposes
 REST endpoints for user accounts/auth, solo matches (vs CPU), versus matches (P2P player vs player), and
-aggregated player records, persisting to PostgreSQL via EF Core. A leaderboards feature is planned but not
-yet implemented (`Dtos/Leaderboards/` exists as an empty placeholder folder).
+aggregated player records, persisting to PostgreSQL via EF Core.
 
 **This project serves a dual purpose: it's both a portfolio piece and the backend for a commercial game.**
 That raises the bar on code quality, security, and production-readiness beyond what a typical hobby/learning
@@ -43,9 +42,28 @@ Run all commands from the repo root (`PinballPVP.slnx`) or from `PinballPVP.Api/
 - Build: `dotnet build`
 - Run (dev server with hot reload): `dotnet watch run --project PinballPVP.Api`
 - Run (no watch): `dotnet run --project PinballPVP.Api`
+- Run tests: `dotnet test` (requires Docker for Testcontainers)
 - Swagger UI is available at `/swagger` when running in the `Development` environment (launch profiles use `http://localhost:5044` / `https://localhost:7240`).
 
-There is currently no test project in the solution, so there are no test commands to run.
+### Testing
+
+The test project is `PinballPVP.Tests/` and uses **xUnit** with **Testcontainers** + **Respawn**:
+
+- **Testcontainers.PostgreSql** spins up a real Postgres container for the test run — Docker must be
+  running. The container is started once for the entire test session (shared via `ICollectionFixture`)
+  and torn down afterward.
+- **Respawn** truncates all application tables before each test method, giving every test a clean slate
+  without the overhead of recreating the schema.
+- **`PinballApiFactory`** (`Tests/Infrastructure/`) is the `WebApplicationFactory<Program>` that wires
+  the Testcontainer connection string and a `FakeEmailService` (captures recovery codes in-memory rather
+  than sending real SMTP) into the running app.
+- **`IntegrationTestBase`** is the base class for all integration test classes. Because xUnit creates a
+  fresh class instance per test method, `InitializeAsync` (DB + email reset) runs before every individual
+  test.
+- **Unit tests** live under `Tests/Unit/` and cover pure logic (e.g., `PeriodFilterExtensions`) with no
+  dependencies.
+- **Integration tests** live under `Tests/Integration/` and exercise the full HTTP stack (auth, users,
+  solo matches, versus matches).
 
 ### EF Core migrations
 
