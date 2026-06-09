@@ -45,6 +45,27 @@ Run all commands from the repo root (`PinballPVP.slnx`) or from `PinballPVP.Api/
 - Run tests: `dotnet test` (requires Docker for Testcontainers)
 - Swagger UI is available at `/swagger` when running in the `Development` environment (launch profiles use `http://localhost:5044` / `https://localhost:7240`).
 
+### Docker
+
+A multi-stage `Dockerfile` lives at the repo root. Build and run with:
+
+```bash
+docker build -t pinball-pvp-api .
+docker run -p 8080:8080 \
+  -e ConnectionStrings__DefaultConnection="..." \
+  -e Jwt__Key="..." \
+  pinball-pvp-api
+```
+
+Key points:
+
+- The image listens on **HTTP port 8080** only — TLS termination belongs at the reverse proxy layer.
+- `ASPNETCORE_ENVIRONMENT` defaults to `Production`; override with `-e ASPNETCORE_ENVIRONMENT=Development` if needed.
+- **Migrations are not applied automatically on startup** — run them as a separate CI/CD step before deploying:
+  `dotnet ef database update --project PinballPVP.Api` (with the production connection string set).
+- All secrets (`ConnectionStrings__DefaultConnection`, `Jwt__Key`, `Email__Password`, etc.) must be
+  injected as environment variables — never bake them into the image.
+
 ### Testing
 
 The test project is `PinballPVP.Tests/` and uses **xUnit** with **Testcontainers** + **Respawn**:

@@ -121,6 +121,35 @@ PinballPVP.Tests/
 
 6. Browse the Swagger UI (development only) at `/swagger` — e.g. `http://localhost:5044/swagger`.
 
+## Docker
+
+A multi-stage `Dockerfile` is included at the repo root. The image listens on **HTTP port 8080**; TLS
+termination is expected to be handled by the reverse proxy or load balancer in front of it.
+
+```bash
+# Build
+docker build -t pinball-pvp-api .
+
+# Run (supply secrets as environment variables — never bake them into the image)
+docker run -p 8080:8080 \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e ConnectionStrings__DefaultConnection="Host=db;Port=5432;Database=pinballpvp;Username=...;Password=..." \
+  -e Jwt__Key="<long random signing secret>" \
+  -e Email__Username="<smtp username>" \
+  -e Email__Password="<smtp password>" \
+  -e Cors__AllowedOrigins__0="https://your-webgl-host.example.com" \
+  pinball-pvp-api
+```
+
+> **Migrations are not run automatically on startup.** Apply them as a separate step before deploying
+> (e.g. in CI/CD, using an init container, or with an EF migrations bundle):
+>
+> ```bash
+> dotnet ef database update --project PinballPVP.Api
+> ```
+
+`GET /health` is suitable for use as a container liveness/readiness probe.
+
 ## API overview
 
 All endpoints are rooted at `/api/v1`. Routes marked 🔒 require a JWT bearer token (`Authorization: Bearer <token>`),
