@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -11,8 +12,9 @@ using PinballPVP.Api.Services.RateLimiting;
 
 namespace PinballPVP.Api.Controllers;
 
+[ApiVersion(1)]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class AuthController(
     PinballPVPContext context,
     IPasswordHasher passwordHasher,

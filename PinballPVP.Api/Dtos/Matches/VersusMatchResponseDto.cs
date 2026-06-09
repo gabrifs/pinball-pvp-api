@@ -7,15 +7,15 @@ public record VersusMatchResponseDto(
     int Id,
 
     int WinnerId,
-    string WinnerNickame,
+    string WinnerNickname,
     int WinnerFinalScore,
     int WinnerRoundsWon,
 
     int LoserId,
-    string LoserNickame,
+    string LoserNickname,
     int LoserFinalScore,
     int LoserRoundsWon,
-    
+
     DateTime PlayedAt
 )
 {
@@ -35,20 +35,17 @@ public record VersusMatchResponseDto(
                 match.PlayedAt
             );
 
-    public static VersusMatchResponseDto FromEntity(VersusMatch match)
-    {
-        return new VersusMatchResponseDto
-            (
-                match.Id,
-                match.WinnerId,
-                match.Winner.Nickname,
-                match.WinnerFinalScore,
-                match.WinnerRoundsWon,
-                match.LoserId,
-                match.Loser.Nickname,
-                match.LoserFinalScore,
-                match.LoserRoundsWon,
-                match.PlayedAt
-            );
-    }
+    public static VersusMatchResponseDto FromEntity(VersusMatch match) =>
+        new(
+            match.Id,
+            match.WinnerId,
+            match.Winner.Nickname,
+            match.WinnerFinalScore,
+            match.WinnerRoundsWon,
+            match.LoserId,
+            match.Loser.Nickname,
+            match.LoserFinalScore,
+            match.LoserRoundsWon,
+            match.PlayedAt
+        );
 }

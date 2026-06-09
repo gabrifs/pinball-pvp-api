@@ -1,16 +1,20 @@
+using System.ComponentModel.DataAnnotations;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
+using PinballPVP.Api.Extensions;
 using PinballPVP.Api.Models;
 using PinballPVP.Api.Services.Password;
 using PinballPVP.Api.Services.RateLimiting;
 
 namespace PinballPVP.Api.Controllers;
 
+[ApiVersion(1)]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class UsersController(PinballPVPContext context, IPasswordHasher passwordHasher) : ControllerBase
 {
     private readonly PinballPVPContext _context = context;
@@ -18,14 +22,17 @@ public class UsersController(PinballPVPContext context, IPasswordHasher password
 
     // GET /api/users
     [HttpGet]
-    public async Task<ActionResult<List<UserResponseDto>>> GetUsers()
+    public async Task<ActionResult<PagedResult<UserResponseDto>>> GetUsers(
+        [Range(1, int.MaxValue)] int page = 1,
+        [Range(1, 100)] int pageSize = 20)
     {
-        var users = await _context.Users
+        var result = await _context.Users
             .AsNoTracking()
+            .OrderBy(u => u.Id)
             .Select(UserResponseDto.Projection)
-            .ToListAsync();
+            .ToPagedResultAsync(page, pageSize);
 
-        return Ok(users);
+        return Ok(result);
     }
 
     // GET /api/users/{id}
