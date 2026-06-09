@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,19 +16,22 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
     private readonly PinballPVPContext _context = context;
 
     [HttpGet]
-    public async Task<ActionResult<List<SoloMatchResponseDto>>> GetMatches(string? period)
+    public async Task<ActionResult<PagedResult<SoloMatchResponseDto>>> GetMatches(
+        string? period,
+        [Range(1, int.MaxValue)] int page = 1,
+        [Range(1, 100)] int pageSize = 20)
     {
         if (!period.IsValidPeriod())
             return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
 
-        var matches = await _context.SoloMatches
+        var result = await _context.SoloMatches
             .ApplyPeriodFilter(period)
             .AsNoTracking()
             .OrderByDescending(m => m.PlayedAt)
             .Select(SoloMatchResponseDto.Projection)
-            .ToListAsync();
+            .ToPagedResultAsync(page, pageSize);
 
-        return Ok(matches);
+        return Ok(result);
     }
 
     [HttpGet("{id}")]
@@ -46,7 +50,11 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
     }
 
     [HttpGet("user/{userId}")]
-    public async Task<ActionResult<List<SoloMatchResponseDto>>> GetUserMatches(int userId, string? period)
+    public async Task<ActionResult<PagedResult<SoloMatchResponseDto>>> GetUserMatches(
+        int userId,
+        string? period,
+        [Range(1, int.MaxValue)] int page = 1,
+        [Range(1, 100)] int pageSize = 20)
     {
         var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
         if (!userExists)
@@ -55,15 +63,15 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
         if (!period.IsValidPeriod())
             return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
 
-        var matches = await _context.SoloMatches
+        var result = await _context.SoloMatches
             .Where(m => m.UserId == userId)
             .ApplyPeriodFilter(period)
             .AsNoTracking()
             .OrderByDescending(m => m.PlayedAt)
             .Select(SoloMatchResponseDto.Projection)
-            .ToListAsync();
+            .ToPagedResultAsync(page, pageSize);
 
-        return Ok(matches);
+        return Ok(result);
     }
 
     [Authorize]
