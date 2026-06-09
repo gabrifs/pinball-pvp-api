@@ -11,16 +11,10 @@ namespace PinballPVP.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController : ControllerBase
+public class UsersController(PinballPVPContext context, IPasswordHasher passwordHasher) : ControllerBase
 {
-    private readonly PinballPVPContext _context;
-    private IPasswordHasher _passwordHasher;
-
-    public UsersController(PinballPVPContext context, IPasswordHasher passwordHasher)
-    {
-        _context = context;
-        _passwordHasher = passwordHasher;
-    }
+    private readonly PinballPVPContext _context = context;
+    private readonly IPasswordHasher _passwordHasher = passwordHasher;
 
     // GET /api/users
     [HttpGet]
@@ -82,7 +76,21 @@ public class UsersController : ControllerBase
 
         _context.Users.Add(user);
 
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" } pgEx)
+        {
+            return pgEx.ConstraintName switch
+            {
+                "ix_users_username" => BadRequest("Username already in use"),
+                "ix_users_nickname" => BadRequest("Nickname already in use"),
+                "ix_users_email"    => BadRequest("Email already in use"),
+                _                   => BadRequest("A user with these details already exists")
+            };
+        }
 
         return CreatedAtAction
         (

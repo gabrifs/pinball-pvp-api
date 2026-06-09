@@ -10,21 +10,16 @@ namespace PinballPVP.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class VersusMatchesController : ControllerBase
+public class VersusMatchesController(PinballPVPContext context) : ControllerBase
 {
-    private readonly PinballPVPContext _context;
-
-    public VersusMatchesController(PinballPVPContext context)
-    {
-        _context = context;
-    }
+    private readonly PinballPVPContext _context = context;
 
     [HttpGet]
     public async Task<ActionResult<List<VersusMatchResponseDto>>> GetMatches(string? period)
     {
         IQueryable<VersusMatch> query = _context.VersusMatches;
-        
-        if(!IsValidPeriod(period))
+
+        if (!IsValidPeriod(period))
             return BadRequest($"Invalid period: {period} (Valid periods are: week, month, year)");
 
         query = ApplyPeriodFilter(query, period);
@@ -47,7 +42,7 @@ public class VersusMatchesController : ControllerBase
             .Select(VersusMatchResponseDto.Projection)
             .FirstOrDefaultAsync();
 
-        if(match == null)
+        if (match == null)
             return NotFound();
 
         return Ok(match);
@@ -59,15 +54,15 @@ public class VersusMatchesController : ControllerBase
         var userExists = await _context.Users
             .AnyAsync(user => user.Id == userId);
 
-        if(!userExists)
+        if (!userExists)
             return NotFound();
 
         IQueryable<VersusMatch> query = _context.VersusMatches
             .Where(match =>
                 match.WinnerId == userId ||
                 match.LoserId == userId);
-        
-        if(!IsValidPeriod(period))
+
+        if (!IsValidPeriod(period))
             return BadRequest($"Invalid period: {period} (Valid periods are: week, month, year)");
 
         query = ApplyPeriodFilter(query, period);
@@ -85,146 +80,157 @@ public class VersusMatchesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<VersusMatchResponseDto>> CreateMatch(CreateVersusMatchDto dto)
     {
-        if(dto.WinnerId == dto.LoserId)
-        {
+        if (dto.WinnerId == dto.LoserId)
             return BadRequest("Winner and loser cannot be the same");
-        }
 
-        // Only a participant (the host reporting the match result) may submit it
         var reporterId = User.GetUserId();
-
-        if(reporterId != dto.WinnerId && reporterId != dto.LoserId)
+        if (reporterId != dto.WinnerId && reporterId != dto.LoserId)
             return Forbid();
 
         var users = await _context.Users
             .Include(user => user.PlayerRecord)
-            .Where(user => 
-                user.Id == dto.WinnerId || 
-                user.Id == dto.LoserId)
+            .Where(user => user.Id == dto.WinnerId || user.Id == dto.LoserId)
             .ToListAsync();
 
         var winner = users.FirstOrDefault(user => user.Id == dto.WinnerId);
         var loser = users.FirstOrDefault(user => user.Id == dto.LoserId);
 
-        if(winner == null || loser == null)
-        {
+        if (winner == null || loser == null)
             return BadRequest("One or more users don't exist");
+
+        var now = DateTime.UtcNow;
+        var minPlayerId = Math.Min(dto.WinnerId, dto.LoserId);
+        var maxPlayerId = Math.Max(dto.WinnerId, dto.LoserId);
+
+        var pending = await _context.PendingVersusMatches
+            .Where(p => p.MinPlayerId == minPlayerId && p.MaxPlayerId == maxPlayerId)
+            .FirstOrDefaultAsync();
+
+        // Treat an expired pending match as if it doesn't exist
+        if (pending?.IsExpired == true)
+        {
+            _context.PendingVersusMatches.Remove(pending);
+            await _context.SaveChangesAsync();
+            pending = null;
         }
 
-        var match = new VersusMatch
+        if (pending is not null)
         {
+            if (pending.ReporterId == reporterId)
+                return BadRequest("You have already submitted this match result. Waiting for your opponent's confirmation.");
+
+            // Second reporter: all six fields must match exactly
+            var resultsMatch =
+                pending.WinnerId        == dto.WinnerId        &&
+                pending.LoserId         == dto.LoserId         &&
+                pending.WinnerFinalScore == dto.WinnerFinalScore &&
+                pending.WinnerRoundsWon  == dto.WinnerRoundsWon  &&
+                pending.LoserFinalScore  == dto.LoserFinalScore  &&
+                pending.LoserRoundsWon   == dto.LoserRoundsWon;
+
+            _context.PendingVersusMatches.Remove(pending);
+
+            if (!resultsMatch)
+            {
+                await _context.SaveChangesAsync();
+                return Conflict("Results did not match. Both submissions have been discarded. You may start a new match.");
+            }
+
+            // Both reporters agree — commit the match
+            var match = new VersusMatch
+            {
+                WinnerId = dto.WinnerId,
+                Winner = winner,
+                WinnerFinalScore = dto.WinnerFinalScore,
+                WinnerRoundsWon = dto.WinnerRoundsWon,
+
+                LoserId = dto.LoserId,
+                Loser = loser,
+                LoserFinalScore = dto.LoserFinalScore,
+                LoserRoundsWon = dto.LoserRoundsWon,
+
+                PlayedAt = now
+            };
+
+            winner.PlayerRecord.VersusWins++;
+            loser.PlayerRecord.VersusLosses++;
+
+            winner.PlayerRecord.VersusHighscore = Math.Max(
+                winner.PlayerRecord.VersusHighscore,
+                dto.WinnerFinalScore);
+
+            loser.PlayerRecord.VersusHighscore = Math.Max(
+                loser.PlayerRecord.VersusHighscore,
+                dto.LoserFinalScore);
+
+            _context.VersusMatches.Add(match);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(
+                nameof(GetMatch),
+                new { id = match.Id },
+                VersusMatchResponseDto.FromEntity(match));
+        }
+
+        // No active pending match — first reporter
+        _context.PendingVersusMatches.Add(new PendingVersusMatch
+        {
+            ReporterId = reporterId,
+            MinPlayerId = minPlayerId,
+            MaxPlayerId = maxPlayerId,
             WinnerId = dto.WinnerId,
-            Winner = winner,
+            LoserId = dto.LoserId,
             WinnerFinalScore = dto.WinnerFinalScore,
             WinnerRoundsWon = dto.WinnerRoundsWon,
-
-            LoserId = dto.LoserId,
-            Loser = loser,
             LoserFinalScore = dto.LoserFinalScore,
             LoserRoundsWon = dto.LoserRoundsWon,
+            ExpiresAt = now.AddMinutes(PendingVersusMatch.ConfirmationWindowMinutes)
+        });
 
-            PlayedAt = DateTime.UtcNow
-        };
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" })
+        {
+            // Race: the other player submitted simultaneously — tell this player to retry as second reporter
+            return Conflict("Another submission for this match is already pending. Please retry to confirm.");
+        }
 
-        // Update win/loss count
-        winner.PlayerRecord.VersusWins++;
-        loser.PlayerRecord.VersusLosses++;
-
-        // Update Highscores
-        winner.PlayerRecord.VersusHighscore = Math.Max(
-            winner.PlayerRecord.VersusHighscore,
-            dto.WinnerFinalScore
-        );
-
-        loser.PlayerRecord.VersusHighscore = Math.Max(
-            loser.PlayerRecord.VersusHighscore,
-            dto.LoserFinalScore
-        );
-
-        // Add match
-        _context.VersusMatches.Add(match);
-
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(
-            nameof(GetMatch),
-            new { id = match.Id },
-            VersusMatchResponseDto.FromEntity(match)
-        );
+        return StatusCode(StatusCodes.Status202Accepted,
+            "Match result submitted. Waiting for your opponent's confirmation.");
     }
 
     private static bool IsValidPeriod(string? period)
     {
-        if(string.IsNullOrEmpty(period))
+        if (string.IsNullOrEmpty(period))
             return true;
 
-        switch (period.ToLower())
-            {
-                case "week":
-                case "month":
-                case "year":
-                    {
-                        return true;
-                    }
-
-                default:
-                    {
-                        return false;
-                    }
-            }
+        return period.ToLower() switch
+        {
+            "week" or "month" or "year" => true,
+            _ => false
+        };
     }
 
     private static IQueryable<VersusMatch> ApplyPeriodFilter(IQueryable<VersusMatch> query, string? period)
     {
-        if(!string.IsNullOrEmpty(period))
+        if (string.IsNullOrEmpty(period))
+            return query;
+
+        var now = DateTime.UtcNow.Date;
+
+        return period.ToLower() switch
         {
-            var now = DateTime.UtcNow.Date;
-
-            switch (period.ToLower())
-            {
-                case "week":
-                    {
-                        var startOfWeek = now
-                            .AddDays(-(int)now.DayOfWeek);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfWeek);
-                        break;
-                    }
-
-                case "month":
-                    {
-                        var startOfMonth = new DateTime(
-                            now.Year,
-                            now.Month,
-                            1);
-
-                        var startOfNextMonth = startOfMonth.AddMonths(1);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfMonth &&
-                                match.PlayedAt < startOfNextMonth);
-                        break;
-                    }
-
-                case "year":
-                    {
-                        var startOfYear = new DateTime(
-                            now.Year, 1, 1);
-
-                        var startOfNextYear = startOfYear.AddYears(1);
-
-                        query = query
-                            .Where(match => 
-                                match.PlayedAt >= startOfYear &&
-                                match.PlayedAt < startOfNextYear);
-                        break;
-                    }
-            }
-        }
-
-        return query;
+            "week" => query.Where(m => m.PlayedAt >= now.AddDays(-(int)now.DayOfWeek)),
+            "month" => query.Where(m =>
+                m.PlayedAt >= new DateTime(now.Year, now.Month, 1) &&
+                m.PlayedAt < new DateTime(now.Year, now.Month, 1).AddMonths(1)),
+            "year" => query.Where(m =>
+                m.PlayedAt >= new DateTime(now.Year, 1, 1) &&
+                m.PlayedAt < new DateTime(now.Year + 1, 1, 1)),
+            _ => query
+        };
     }
 }

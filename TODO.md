@@ -3,20 +3,11 @@
 A roadmap of what's still needed to take PinballPVP.Api from its current development state to a
 production-ready backend for the Unity head-to-head pinball game. Items are grouped by area, not by priority.
 
-## Security
+## Maintenance
 
-- [ ] **Configure CORS** for the origins the Unity client will call from (especially important for WebGL builds).
-- [ ] **Add refresh tokens / a revocation strategy.** A JWT currently can't be invalidated before it expires —
-      there's no logout, and a compromised account's token stays valid until `ExpirationMinutes` runs out.
-- [ ] **Decide on anti-spoofing for versus match results.** An authenticated participant can currently report
-      any outcome for a match they were part of (see [[VersusMatchesController.CreateMatch]]) — there's no
-      server-authoritative source of truth for who actually won a P2P match. Worth considering signed/shared
-      result payloads from both peers, or basic anomaly detection (e.g. implausible score jumps) once
-      leaderboards make this worth exploiting.
-- [ ] **Fix the uniqueness-check race in `UsersController.CreateUser`.** `Username`/`Nickname`/`Email`
-      uniqueness is checked via separate `AnyAsync` queries before insert; two concurrent registrations can
-      both pass the checks and then hit the DB's unique index, surfacing as an unhandled `DbUpdateException`
-      (500) instead of the friendly 400 message.
+- [ ] **Purge expired refresh tokens.** Every login creates a new `RefreshToken` row; expired rows are never
+      deleted automatically. Add a background job or scheduled task to delete rows where `ExpiresAt < UtcNow`
+      to prevent unbounded table growth at scale.
 
 ## Reliability & observability
 

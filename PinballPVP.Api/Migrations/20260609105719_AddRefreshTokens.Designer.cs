@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PinballPVP.Api.Data;
@@ -11,9 +12,11 @@ using PinballPVP.Api.Data;
 namespace PinballPVP.Api.Migrations
 {
     [DbContext(typeof(PinballPVPContext))]
-    partial class PinballPVPContextModelSnapshot : ModelSnapshot
+    [Migration("20260609105719_AddRefreshTokens")]
+    partial class AddRefreshTokens
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,74 +24,6 @@ namespace PinballPVP.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("PinballPVP.Api.Models.PendingVersusMatch", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.Property<int>("LoserFinalScore")
-                        .HasColumnType("integer")
-                        .HasColumnName("loser_final_score");
-
-                    b.Property<int>("LoserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("loser_id");
-
-                    b.Property<int>("LoserRoundsWon")
-                        .HasColumnType("integer")
-                        .HasColumnName("loser_rounds_won");
-
-                    b.Property<int>("MaxPlayerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("max_player_id");
-
-                    b.Property<int>("MinPlayerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("min_player_id");
-
-                    b.Property<int>("ReporterId")
-                        .HasColumnType("integer")
-                        .HasColumnName("reporter_id");
-
-                    b.Property<int>("WinnerFinalScore")
-                        .HasColumnType("integer")
-                        .HasColumnName("winner_final_score");
-
-                    b.Property<int>("WinnerId")
-                        .HasColumnType("integer")
-                        .HasColumnName("winner_id");
-
-                    b.Property<int>("WinnerRoundsWon")
-                        .HasColumnType("integer")
-                        .HasColumnName("winner_rounds_won");
-
-                    b.HasKey("Id")
-                        .HasName("pk_pending_versus_matches");
-
-                    b.HasIndex("LoserId")
-                        .HasDatabaseName("ix_pending_versus_matches_loser_id");
-
-                    b.HasIndex("ReporterId")
-                        .HasDatabaseName("ix_pending_versus_matches_reporter_id");
-
-                    b.HasIndex("WinnerId")
-                        .HasDatabaseName("ix_pending_versus_matches_winner_id");
-
-                    b.HasIndex("MinPlayerId", "MaxPlayerId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_pending_versus_matches_min_player_id_max_player_id");
-
-                    b.ToTable("pending_versus_matches", (string)null);
-                });
 
             modelBuilder.Entity("PinballPVP.Api.Models.PlayerRecord", b =>
                 {
@@ -298,36 +233,6 @@ namespace PinballPVP.Api.Migrations
                         .HasDatabaseName("ix_versus_matches_winner_id");
 
                     b.ToTable("versus_matches", (string)null);
-                });
-
-            modelBuilder.Entity("PinballPVP.Api.Models.PendingVersusMatch", b =>
-                {
-                    b.HasOne("PinballPVP.Api.Models.User", "Loser")
-                        .WithMany()
-                        .HasForeignKey("LoserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_pending_versus_matches_users_loser_id");
-
-                    b.HasOne("PinballPVP.Api.Models.User", "Reporter")
-                        .WithMany()
-                        .HasForeignKey("ReporterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_pending_versus_matches_users_reporter_id");
-
-                    b.HasOne("PinballPVP.Api.Models.User", "Winner")
-                        .WithMany()
-                        .HasForeignKey("WinnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_pending_versus_matches_users_winner_id");
-
-                    b.Navigation("Loser");
-
-                    b.Navigation("Reporter");
-
-                    b.Navigation("Winner");
                 });
 
             modelBuilder.Entity("PinballPVP.Api.Models.PlayerRecord", b =>
