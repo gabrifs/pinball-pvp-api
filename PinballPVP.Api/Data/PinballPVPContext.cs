@@ -18,6 +18,8 @@ public class PinballPVPContext : DbContext
 
     public DbSet<RefreshToken> RefreshTokens { get; set; }
 
+    public DbSet<PendingVersusMatch> PendingVersusMatches { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // User <--One-to-One--> Player Record
@@ -54,6 +56,29 @@ public class PinballPVPContext : DbContext
             .WithMany()
             .HasForeignKey(match => match.LoserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Pending Versus Matches
+        modelBuilder.Entity<PendingVersusMatch>()
+            .HasOne(p => p.Reporter)
+            .WithMany()
+            .HasForeignKey(p => p.ReporterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PendingVersusMatch>()
+            .HasOne(p => p.Winner)
+            .WithMany()
+            .HasForeignKey(p => p.WinnerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PendingVersusMatch>()
+            .HasOne(p => p.Loser)
+            .WithMany()
+            .HasForeignKey(p => p.LoserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PendingVersusMatch>()
+            .HasIndex(p => new { p.MinPlayerId, p.MaxPlayerId })
+            .IsUnique();
 
         // Refresh Tokens
         modelBuilder.Entity<RefreshToken>()

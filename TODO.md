@@ -3,14 +3,6 @@
 A roadmap of what's still needed to take PinballPVP.Api from its current development state to a
 production-ready backend for the Unity head-to-head pinball game. Items are grouped by area, not by priority.
 
-## Security
-
-- [ ] **Decide on anti-spoofing for versus match results.** An authenticated participant can currently report
-      any outcome for a match they were part of (see [[VersusMatchesController.CreateMatch]]) — there's no
-      server-authoritative source of truth for who actually won a P2P match. Worth considering signed/shared
-      result payloads from both peers, or basic anomaly detection (e.g. implausible score jumps) once
-      leaderboards make this worth exploiting.
-
 ## Maintenance
 
 - [ ] **Purge expired refresh tokens.** Every login creates a new `RefreshToken` row; expired rows are never

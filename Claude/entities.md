@@ -13,3 +13,10 @@
   (`SoloWins`, `SoloLosses`, `SoloHighscore`, `VersusWins`, `VersusLosses`, `VersusHighscore`). These are
   updated as a side effect when a match is created (see [controllers.md](controllers.md)) — they are not
   recomputed from match history.
+- `PendingVersusMatch` — temporary holding table for the dual-confirmation anti-spoofing flow (see
+  [controllers.md](controllers.md)). Has `ReporterId`, `WinnerId`, `LoserId`, the six score fields, and
+  `ExpiresAt` (5 minutes from creation, controlled by `PendingVersusMatch.ConfirmationWindowMinutes`).
+  `MinPlayerId`/`MaxPlayerId` are `Math.Min/Max(WinnerId, LoserId)` set on insert — they back a unique index
+  ensuring at most one pending match per player pair regardless of who claims to have won. All three FKs
+  (`ReporterId`, `WinnerId`, `LoserId`) use `DeleteBehavior.Restrict` — consistent with the `VersusMatch`
+  FKs.
