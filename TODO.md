@@ -5,12 +5,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Features
 
-## Testing
-
-- [ ] **Add a test project.** There are currently no automated tests in the solution — at minimum, cover the
-      controller logic (auth checks, uniqueness validation, win/loss + highscore aggregation) and the
-      period-filter helpers with unit tests, plus integration tests against a real (test) database.
-
 ## Deployment
 
 - [ ] **Containerize the app** (Dockerfile) for consistent builds and deployment.

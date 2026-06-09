@@ -41,15 +41,20 @@ each player — the foundation for the in-game leaderboards.
 PinballPVP.Api/
 ├── Controllers/   # API endpoints (Auth, Users, SoloMatches, VersusMatches, PlayerRecords, Leaderboards)
 ├── Models/        # EF Core entities (User, SoloMatch, VersusMatch, PlayerRecord,
-│                  #   RefreshToken, PendingVersusMatch)
+│                  #   RefreshToken, PendingVersusMatch, PasswordRecoveryCode)
 ├── Dtos/          # Request/response DTOs, grouped by feature (User, Login, Matches,
 │                  #   Player Records, Leaderboards); includes shared PagedResult<T> wrapper
 ├── Data/          # PinballPVPContext (EF Core DbContext) and entity configuration
 ├── Services/      # Application services (password hashing, JWT issuing, refresh tokens,
-│                  #   global exception handler, health check, background maintenance)
+│                  #   email delivery, global exception handler, health check, background maintenance)
 ├── Middleware/    # Request pipeline middleware (CorrelationIdMiddleware)
 ├── Extensions/    # Helper extensions (JWT claims, period filtering, paginated queries)
 └── Migrations/    # EF Core database migrations
+
+PinballPVP.Tests/
+├── Infrastructure/  # WebApplicationFactory, FakeEmailService, test base class
+├── Unit/            # Pure-logic unit tests (PeriodFilterExtensions, etc.)
+└── Integration/     # Full HTTP integration tests (Auth, Users, SoloMatches, VersusMatches)
 ```
 
 ## Getting started
@@ -58,6 +63,7 @@ PinballPVP.Api/
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - A running [PostgreSQL](https://www.postgresql.org/) instance
+- [Docker](https://www.docker.com/) (required to run the test suite — Testcontainers spins up an isolated Postgres container automatically)
 
 ### Setup
 
@@ -95,7 +101,13 @@ PinballPVP.Api/
    dotnet ef database update --project PinballPVP.Api
    ```
 
-4. Run the API:
+4. Run the tests (Docker must be running):
+
+   ```bash
+   dotnet test
+   ```
+
+5. Run the API:
 
    ```bash
    dotnet run --project PinballPVP.Api
@@ -107,7 +119,7 @@ PinballPVP.Api/
    dotnet watch run --project PinballPVP.Api
    ```
 
-5. Browse the Swagger UI (development only) at `/swagger` — e.g. `http://localhost:5044/swagger`.
+6. Browse the Swagger UI (development only) at `/swagger` — e.g. `http://localhost:5044/swagger`.
 
 ## API overview
 
