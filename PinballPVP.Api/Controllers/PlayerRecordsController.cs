@@ -1,33 +1,28 @@
-using Microsoft.AspNetCore.Authorization;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
-using PinballPVP.Api.Models;
 
 namespace PinballPVP.Api.Controllers;
 
+[ApiVersion(1)]
 [ApiController]
-[Route("api/users/[controller]")]
-public class PlayerRecordsController : ControllerBase
+[Route("api/v{version:apiVersion}/users/playerrecords")]
+public class PlayerRecordsController(PinballPVPContext context) : ControllerBase
 {
-    private readonly PinballPVPContext _context;
-
-    public PlayerRecordsController(PinballPVPContext context)
-    {
-        _context = context;
-    }
+    private readonly PinballPVPContext _context = context;
 
     [HttpGet("{id}")]
     public async Task<ActionResult<PlayerRecordResponseDto>> GetPlayerRecord(int id)
     {
         var playerRecord = await _context.PlayerRecords
             .AsNoTracking()
-            .Where(playerRecord => playerRecord.UserId == id)
+            .Where(pr => pr.UserId == id)
             .Select(PlayerRecordResponseDto.Projection)
             .FirstOrDefaultAsync();
 
-        if(playerRecord == null)
+        if (playerRecord == null)
             return NotFound();
 
         return Ok(playerRecord);

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,8 +10,9 @@ using PinballPVP.Api.Models;
 
 namespace PinballPVP.Api.Controllers;
 
+[ApiVersion(1)]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class SoloMatchesController(PinballPVPContext context) : ControllerBase
 {
     private readonly PinballPVPContext _context = context;

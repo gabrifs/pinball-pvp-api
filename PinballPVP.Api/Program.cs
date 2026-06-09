@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PinballPVP.Api.Data;
+using Asp.Versioning;
 using PinballPVP.Api.Middleware;
 using PinballPVP.Api.Services.Auth;
 using PinballPVP.Api.Services.ExceptionHandling;
@@ -46,6 +47,12 @@ builder.Services.AddCors(options =>
 
 // Controllers
 builder.Services.AddControllers();
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+}).AddMvc();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

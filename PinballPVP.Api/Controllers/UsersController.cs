@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -11,8 +12,9 @@ using PinballPVP.Api.Services.RateLimiting;
 
 namespace PinballPVP.Api.Controllers;
 
+[ApiVersion(1)]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class UsersController(PinballPVPContext context, IPasswordHasher passwordHasher) : ControllerBase
 {
     private readonly PinballPVPContext _context = context;
