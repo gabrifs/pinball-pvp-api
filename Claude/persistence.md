@@ -12,3 +12,8 @@
   browser clients (Unity WebGL builds); desktop/mobile Unity builds are not subject to CORS.
 - Match timestamps (`PlayedAt`) are always set server-side via `DateTime.UtcNow` on creation, never taken
   from the client DTO.
+- `ExpiredRecordPurgeService` (`Services/Maintenance/`) is a `BackgroundService` registered as a hosted
+  service. It runs once on startup then on a configurable interval (`Maintenance:PurgeIntervalHours`,
+  default 24 h) and bulk-deletes expired `RefreshToken` and `PendingVersusMatch` rows via
+  `ExecuteDeleteAsync`. It creates its own `IServiceScope` per run since `DbContext` is scoped and
+  `BackgroundService` is singleton.

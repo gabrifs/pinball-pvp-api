@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Services.Auth;
+using PinballPVP.Api.Services.Maintenance;
 using PinballPVP.Api.Services.Password;
 using PinballPVP.Api.Services.RateLimiting;
 
@@ -42,6 +43,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddHostedService<ExpiredRecordPurgeService>();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");

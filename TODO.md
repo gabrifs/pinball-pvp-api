@@ -3,12 +3,6 @@
 A roadmap of what's still needed to take PinballPVP.Api from its current development state to a
 production-ready backend for the Unity head-to-head pinball game. Items are grouped by area, not by priority.
 
-## Maintenance
-
-- [ ] **Purge expired refresh tokens.** Every login creates a new `RefreshToken` row; expired rows are never
-      deleted automatically. Add a background job or scheduled task to delete rows where `ExpiresAt < UtcNow`
-      to prevent unbounded table growth at scale.
-
 ## Reliability & observability
 
 - [ ] **Add global exception handling** (`UseExceptionHandler` / `IExceptionHandler`) so unexpected errors
@@ -28,14 +22,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## API design
 
-- [ ] **Fix the `WinnerNickame`/`LoserNickame` typo in `VersusMatchResponseDto`.** Both the record
-      properties and the `Projection`/`FromEntity` mappings are missing the 'n' (`Nickname` → `Nickame`).
-      This is a public API contract field name, so it's cheap to fix now but becomes a breaking change
-      once the Unity client integrates against it — worth doing before that happens.
-- [ ] **Add validation attributes to `CreateSoloMatchDto`/`CreateVersusMatchDto`.** Unlike `CreateUserDto`/
-      `LoginDto`, these have no `[Range]`/`[Required]` attributes on `FinalScore`, `RoundsWon`,
-      `WinnerFinalScore`, etc. — a client can currently submit negative or nonsensical scores, which would
-      corrupt highscores and win/loss aggregates (and, on a commercial leaderboard, be trivially exploitable).
 - [ ] **Add pagination** to the list endpoints (`GET /api/users`, `GET /api/solomatches`,
       `GET /api/versusmatches`) — they currently load and return entire tables, which won't scale as match
       history grows.

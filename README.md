@@ -12,8 +12,8 @@ each player — the foundation for the in-game leaderboards.
 - **User accounts & authentication** — registration with unique usernames, nicknames and emails,
   Argon2-hashed passwords, and JWT bearer login.
 - **Solo matches** — log a single-player session (final score, rounds won, win/loss) against your own highscore.
-- **Versus matches** — log head-to-head P2P results between two users (one acts as host and reports the
-  result), automatically updating both players' records.
+- **Versus matches** — dual-confirmation P2P results: both participants must independently submit
+  matching scores before a match is recorded, preventing one-sided forgery.
 - **Player records** — aggregated solo/versus win-loss counts and highscores per user.
 - **Period filters** — list matches filtered by `week`, `month` or `year`.
 - **Swagger / OpenAPI** UI for exploring and testing the API in development.
@@ -32,10 +32,12 @@ each player — the foundation for the in-game leaderboards.
 ```text
 PinballPVP.Api/
 ├── Controllers/   # API endpoints (Auth, Users, SoloMatches, VersusMatches, PlayerRecords)
-├── Models/        # EF Core entities (User, SoloMatch, VersusMatch, PlayerRecord)
+├── Models/        # EF Core entities (User, SoloMatch, VersusMatch, PlayerRecord,
+│                  #   RefreshToken, PendingVersusMatch)
 ├── Dtos/          # Request/response DTOs, grouped by feature (User, Login, Matches, Player Records, Leaderboards)
 ├── Data/          # PinballPVPContext (EF Core DbContext) and entity configuration
-├── Services/      # Application services (password hashing, JWT issuing)
+├── Services/      # Application services (password hashing, JWT issuing, refresh tokens,
+│                  #   background maintenance)
 ├── Extensions/    # Helper extensions (e.g. reading the authenticated user's id from JWT claims)
 └── Migrations/    # EF Core database migrations
 ```
@@ -116,7 +118,7 @@ obtained via `POST /api/auth`.
 | GET    | `/api/versusmatches`               |      | List versus matches (optional `?period=week\|month\|year`)  |
 | GET    | `/api/versusmatches/{id}`          |      | Get a single versus match                                   |
 | GET    | `/api/versusmatches/user/{userId}` |      | List a user's versus matches                                |
-| POST   | `/api/versusmatches`               |  🔒  | Log a new versus match (caller must be the winner or loser) |
+| POST   | `/api/versusmatches`               |  🔒  | Submit a versus match result — see dual-confirmation below  |
 
 ### Authentication
 
@@ -130,9 +132,21 @@ new token pair — the old refresh token is revoked and a new one issued (rotati
 refresh token; the endpoint is idempotent.
 
 The API identifies the caller from the JWT's `sub` claim (the user's id) — protected match-creation
-endpoints check that the authenticated user is actually one of the players named in the request body
-(e.g. for versus matches, the winner or the loser, since either may act as the P2P host reporting the
-result) and respond `403 Forbidden` otherwise.
+endpoints verify the authenticated user is one of the players named in the request body and respond
+`403 Forbidden` otherwise.
+
+### Versus match confirmation
+
+`POST /api/versusmatches` uses a dual-confirmation flow to prevent one player from unilaterally
+falsifying a result:
+
+1. **First reporter** (either participant) submits the result → `202 Accepted`. The submission is held
+   as a pending match for up to 5 minutes.
+2. **Second reporter** (the other participant) submits their version:
+   - If all fields agree exactly → `201 Created`, match recorded, player records updated.
+   - If any field differs → `409 Conflict`, both submissions discarded. Neither player gains anything.
+3. If no confirmation arrives within 5 minutes (e.g. the other player crashed), the pending match
+   expires and the first reporter can submit again to start a fresh confirmation window.
 
 ### Rate limiting
 
