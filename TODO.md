@@ -10,10 +10,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
       server-authoritative source of truth for who actually won a P2P match. Worth considering signed/shared
       result payloads from both peers, or basic anomaly detection (e.g. implausible score jumps) once
       leaderboards make this worth exploiting.
-- [ ] **Fix the uniqueness-check race in `UsersController.CreateUser`.** `Username`/`Nickname`/`Email`
-      uniqueness is checked via separate `AnyAsync` queries before insert; two concurrent registrations can
-      both pass the checks and then hit the DB's unique index, surfacing as an unhandled `DbUpdateException`
-      (500) instead of the friendly 400 message.
 
 ## Maintenance
 
