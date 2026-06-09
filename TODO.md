@@ -5,4 +5,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Deployment
 
-- [ ] **Set up CI/CD** (build, test, run migrations, deploy) — no pipeline exists yet.
+- [ ] **Configure deploy step in CI/CD** — pipeline builds, tests, and pushes the image; the deploy
+  step (run migrations + roll out new container) is a placeholder until a hosting target is chosen.
+  See the comment at the bottom of [`.github/workflows/ci.yml`](.github/workflows/ci.yml).

@@ -1,5 +1,7 @@
 ﻿# PinballPVP API
 
+[![CI](https://github.com/gabrifs/pinball-pvp-api/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrifs/pinball-pvp-api/actions/workflows/ci.yml)
+
 A REST API backing a Unity **head-to-head pinball game**, built with **ASP.NET Core (.NET 10)** and
 **PostgreSQL**. It handles player accounts and authentication, tracks solo (vs CPU) and versus (P2P
 player-vs-player) matches, and maintains an aggregated player record (wins, losses and highscores) for
@@ -120,6 +122,20 @@ PinballPVP.Tests/
    ```
 
 6. Browse the Swagger UI (development only) at `/swagger` — e.g. `http://localhost:5044/swagger`.
+
+## CI/CD
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request to `master`:
+
+- **build-and-test** — restores, builds, and runs the full test suite against a real PostgreSQL container
+  (Testcontainers). Docker is available on `ubuntu-latest` runners, so no extra setup is needed.
+- **docker** (master pushes only) — builds and pushes the production image to
+  `ghcr.io/gabrifs/pinball-pvp-api` tagged `:latest` and `:sha-<short-sha>`. Uses the automatic
+  `GITHUB_TOKEN`; no credentials to configure.
+
+A deploy step is left as a commented placeholder in the workflow until a hosting target is chosen.
+EF Core migrations must be run as a separate step **before** rolling out a new image — see the
+[Docker](#docker) section for the `dotnet ef database update` command.
 
 ## Docker
 
