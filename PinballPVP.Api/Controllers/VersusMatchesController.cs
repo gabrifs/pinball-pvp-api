@@ -17,16 +17,13 @@ public class VersusMatchesController(PinballPVPContext context) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<VersusMatchResponseDto>>> GetMatches(string? period)
     {
-        IQueryable<VersusMatch> query = _context.VersusMatches;
+        if (!period.IsValidPeriod())
+            return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
 
-        if (!IsValidPeriod(period))
-            return BadRequest($"Invalid period: {period} (Valid periods are: week, month, year)");
-
-        query = ApplyPeriodFilter(query, period);
-
-        var matches = await query
+        var matches = await _context.VersusMatches
+            .ApplyPeriodFilter(period)
             .AsNoTracking()
-            .OrderByDescending(match => match.PlayedAt)
+            .OrderByDescending(m => m.PlayedAt)
             .Select(VersusMatchResponseDto.Projection)
             .ToListAsync();
 
@@ -51,25 +48,18 @@ public class VersusMatchesController(PinballPVPContext context) : ControllerBase
     [HttpGet("user/{userId}")]
     public async Task<ActionResult<List<VersusMatchResponseDto>>> GetUserMatches(int userId, string? period)
     {
-        var userExists = await _context.Users
-            .AnyAsync(user => user.Id == userId);
-
+        var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
         if (!userExists)
             return NotFound();
 
-        IQueryable<VersusMatch> query = _context.VersusMatches
-            .Where(match =>
-                match.WinnerId == userId ||
-                match.LoserId == userId);
+        if (!period.IsValidPeriod())
+            return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
 
-        if (!IsValidPeriod(period))
-            return BadRequest($"Invalid period: {period} (Valid periods are: week, month, year)");
-
-        query = ApplyPeriodFilter(query, period);
-
-        var matches = await query
+        var matches = await _context.VersusMatches
+            .Where(m => m.WinnerId == userId || m.LoserId == userId)
+            .ApplyPeriodFilter(period)
             .AsNoTracking()
-            .OrderByDescending(match => match.PlayedAt)
+            .OrderByDescending(m => m.PlayedAt)
             .Select(VersusMatchResponseDto.Projection)
             .ToListAsync();
 
@@ -202,35 +192,4 @@ public class VersusMatchesController(PinballPVPContext context) : ControllerBase
             "Match result submitted. Waiting for your opponent's confirmation.");
     }
 
-    private static bool IsValidPeriod(string? period)
-    {
-        if (string.IsNullOrEmpty(period))
-            return true;
-
-        return period.ToLower() switch
-        {
-            "week" or "month" or "year" => true,
-            _ => false
-        };
-    }
-
-    private static IQueryable<VersusMatch> ApplyPeriodFilter(IQueryable<VersusMatch> query, string? period)
-    {
-        if (string.IsNullOrEmpty(period))
-            return query;
-
-        var now = DateTime.UtcNow.Date;
-
-        return period.ToLower() switch
-        {
-            "week" => query.Where(m => m.PlayedAt >= now.AddDays(-(int)now.DayOfWeek)),
-            "month" => query.Where(m =>
-                m.PlayedAt >= new DateTime(now.Year, now.Month, 1) &&
-                m.PlayedAt < new DateTime(now.Year, now.Month, 1).AddMonths(1)),
-            "year" => query.Where(m =>
-                m.PlayedAt >= new DateTime(now.Year, 1, 1) &&
-                m.PlayedAt < new DateTime(now.Year + 1, 1, 1)),
-            _ => query
-        };
-    }
 }
