@@ -38,6 +38,17 @@ that let clients obtain new access tokens without re-entering credentials. Key d
 - **Cascade delete:** deleting a `User` cascades to their `RefreshToken` rows (configured in
   `PinballPVPContext.OnModelCreating`).
 
+## Email service
+
+`IEmailService` (`Services/Email/`) is a scoped service with a single method:
+`SendPasswordRecoveryAsync(toEmail, toNickname, recoveryCode)`. The concrete implementation
+`SmtpEmailService` uses MailKit's async `SmtpClient` with STARTTLS on the configured port (default 587).
+
+Configuration lives in the `Email` config section. Non-sensitive keys (`Host`, `Port`, `FromAddress`,
+`FromName`) belong in `appsettings*.json`; the credentials (`Username`, `Password`) **must** be set
+via `dotnet user-secrets` (local dev) or environment variables / a secrets manager (other
+environments) — never committed to a config file.
+
 ## Rate limiting
 
 `POST /api/auth` (login) and `POST /api/users` (registration) are unauthenticated and thus the prime targets

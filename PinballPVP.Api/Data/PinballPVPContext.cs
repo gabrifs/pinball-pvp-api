@@ -20,6 +20,8 @@ public class PinballPVPContext : DbContext
 
     public DbSet<PendingVersusMatch> PendingVersusMatches { get; set; }
 
+    public DbSet<PasswordRecoveryCode> PasswordRecoveryCodes { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // User <--One-to-One--> Player Record
@@ -90,6 +92,16 @@ public class PinballPVPContext : DbContext
         modelBuilder.Entity<RefreshToken>()
             .HasIndex(rt => rt.TokenHash)
             .IsUnique();
+
+        // Password Recovery Codes
+        modelBuilder.Entity<PasswordRecoveryCode>()
+            .HasOne(rc => rc.User)
+            .WithMany()
+            .HasForeignKey(rc => rc.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PasswordRecoveryCode>()
+            .HasIndex(rc => new { rc.UserId, rc.Used });
 
         base.OnModelCreating(modelBuilder);
     }
