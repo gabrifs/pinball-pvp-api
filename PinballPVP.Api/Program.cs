@@ -20,6 +20,17 @@ builder.Services.AddDbContext<PinballPVPContext>(options =>
     .UseSnakeCaseNamingConvention()
 );
 
+// CORS — origins are environment-specific; set Cors:AllowedOrigins in appsettings or via
+// environment variables (e.g. Cors__AllowedOrigins__0=https://mygame.example.com) for production.
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+        policy.WithOrigins(corsOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
 // Controllers
 builder.Services.AddControllers();
 
@@ -30,6 +41,7 @@ builder.Services.AddSwaggerGen();
 // Application Services
 builder.Services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -101,6 +113,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

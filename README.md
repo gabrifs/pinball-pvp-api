@@ -29,7 +29,7 @@ each player — the foundation for the in-game leaderboards.
 
 ## Project structure
 
-```
+```text
 PinballPVP.Api/
 ├── Controllers/   # API endpoints (Auth, Users, SoloMatches, VersusMatches, PlayerRecords)
 ├── Models/        # EF Core entities (User, SoloMatch, VersusMatch, PlayerRecord)
@@ -64,8 +64,16 @@ PinballPVP.Api/
    dotnet user-secrets set "Jwt:Key" "<a long random signing secret>"
    ```
 
-   The non-sensitive `Jwt` settings (`Issuer`, `Audience`, `ExpirationMinutes`) still live in
-   `appsettings.Development.json` and don't need to be overridden locally.
+   The non-sensitive `Jwt` settings (`Issuer`, `Audience`, `ExpirationMinutes`) and the CORS
+   `AllowedOrigins` list still live in `appsettings.Development.json` and don't need to be overridden
+   locally. For **production**, set allowed origins via environment variables:
+
+   ```env
+   Cors__AllowedOrigins__0=https://your-webgl-host.example.com
+   ```
+
+   The `appsettings.json` ships with an empty origins list, so CORS is disabled until explicitly
+   configured — this is intentional.
 
 3. Apply the database migrations:
 
@@ -92,26 +100,34 @@ PinballPVP.Api/
 All endpoints are rooted at `/api`. Routes marked 🔒 require a JWT bearer token (`Authorization: Bearer <token>`),
 obtained via `POST /api/auth`.
 
-| Method | Route                              | Auth | Description                                              |
-|--------|------------------------------------|:----:|----------------------------------------------------------|
-| POST   | `/api/auth`                        |      | Log in with username + password, returns a JWT           |
-| GET    | `/api/users`                       |      | List all users                                            |
-| GET    | `/api/users/{id}`                  |      | Get a single user                                         |
-| POST   | `/api/users`                       |      | Register a new user                                       |
-| GET    | `/api/users/playerrecords/{id}`    |      | Get a user's aggregated player record                     |
-| GET    | `/api/solomatches`                 |      | List solo matches (optional `?period=week\|month\|year`) |
-| GET    | `/api/solomatches/{id}`            |      | Get a single solo match                                   |
-| GET    | `/api/solomatches/user/{userId}`   |      | List a user's solo matches                                |
-| POST   | `/api/solomatches`                 |  🔒  | Log a new solo match (caller must be the match's player)  |
-| GET    | `/api/versusmatches`               |      | List versus matches (optional `?period=week\|month\|year`) |
-| GET    | `/api/versusmatches/{id}`          |      | Get a single versus match                                 |
-| GET    | `/api/versusmatches/user/{userId}` |      | List a user's versus matches                              |
+| Method | Route                              | Auth | Description                                                 |
+|--------|------------------------------------|:----:|-------------------------------------------------------------|
+| POST   | `/api/auth`                        |      | Log in — returns a JWT access token and a refresh token     |
+| POST   | `/api/auth/refresh`                |      | Exchange a refresh token for a new access + refresh pair    |
+| POST   | `/api/auth/logout`                 |  🔒  | Revoke the supplied refresh token                           |
+| GET    | `/api/users`                       |      | List all users                                              |
+| GET    | `/api/users/{id}`                  |      | Get a single user                                           |
+| POST   | `/api/users`                       |      | Register a new user                                         |
+| GET    | `/api/users/playerrecords/{id}`    |      | Get a user's aggregated player record                       |
+| GET    | `/api/solomatches`                 |      | List solo matches (optional `?period=week\|month\|year`)    |
+| GET    | `/api/solomatches/{id}`            |      | Get a single solo match                                     |
+| GET    | `/api/solomatches/user/{userId}`   |      | List a user's solo matches                                  |
+| POST   | `/api/solomatches`                 |  🔒  | Log a new solo match (caller must be the match's player)    |
+| GET    | `/api/versusmatches`               |      | List versus matches (optional `?period=week\|month\|year`)  |
+| GET    | `/api/versusmatches/{id}`          |      | Get a single versus match                                   |
+| GET    | `/api/versusmatches/user/{userId}` |      | List a user's versus matches                                |
 | POST   | `/api/versusmatches`               |  🔒  | Log a new versus match (caller must be the winner or loser) |
 
 ### Authentication
 
-`POST /api/auth` accepts `{ "username": "...", "password": "..." }` and returns `{ "token": "<jwt>" }` on
-success. Send that token as `Authorization: Bearer <token>` on subsequent requests to 🔒 endpoints.
+`POST /api/auth` accepts `{ "username": "...", "password": "..." }` and returns
+`{ "token": "<jwt>", "refreshToken": "<opaque>" }` on success. Send the JWT as
+`Authorization: Bearer <token>` on subsequent 🔒 requests.
+
+When the access token expires, call `POST /api/auth/refresh` with `{ "refreshToken": "..." }` to receive a
+new token pair — the old refresh token is revoked and a new one issued (rotation). To log out, call
+`POST /api/auth/logout` (requires the current access token) with `{ "refreshToken": "..." }` to revoke the
+refresh token; the endpoint is idempotent.
 
 The API identifies the caller from the JWT's `sub` claim (the user's id) — protected match-creation
 endpoints check that the authenticated user is actually one of the players named in the request body

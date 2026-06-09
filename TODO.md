@@ -5,9 +5,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Security
 
-- [ ] **Configure CORS** for the origins the Unity client will call from (especially important for WebGL builds).
-- [ ] **Add refresh tokens / a revocation strategy.** A JWT currently can't be invalidated before it expires —
-      there's no logout, and a compromised account's token stays valid until `ExpirationMinutes` runs out.
 - [ ] **Decide on anti-spoofing for versus match results.** An authenticated participant can currently report
       any outcome for a match they were part of (see [[VersusMatchesController.CreateMatch]]) — there's no
       server-authoritative source of truth for who actually won a P2P match. Worth considering signed/shared

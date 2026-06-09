@@ -16,6 +16,25 @@ from the `Jwt` config section (`Key`, `Issuer`, `Audience`, `ExpirationMinutes`)
   matching the underlying `Argon2.Verify(encoded, password)` signature. Getting this order backwards silently
   breaks all logins (hashes don't parse as passwords or vice versa), so don't "fix" it back to `(password, hash)`.
 
+## Refresh tokens
+
+Refresh tokens are long-lived opaque tokens (30-day default, configurable via `Jwt:RefreshTokenExpirationDays`)
+that let clients obtain new access tokens without re-entering credentials. Key design points:
+
+- **Storage:** only the SHA-256 hash of the raw token is persisted (`RefreshToken.TokenHash`); the raw token
+  is returned to the client once and never stored server-side — if the DB is leaked, tokens can't be replayed.
+- **Rotation:** `POST /api/auth/refresh` revokes the submitted token and issues a fresh pair
+  (`token` + `refreshToken`) atomically via an explicit EF Core transaction. The client must update its
+  stored refresh token on every refresh.
+- **Revocation / logout:** `POST /api/auth/logout` (`[Authorize]`) accepts the client's refresh token,
+  validates it belongs to the authenticated user, and revokes it. It is idempotent — submitting an already-
+  revoked/expired token returns `204` rather than an error.
+- **`IRefreshTokenService`** (`Services/Auth/`) handles generation, validation, and revocation; it's a
+  scoped service injected into `AuthController`. The service takes the raw token from the client, hashes it,
+  and looks it up — callers never deal with the hash directly.
+- **Cascade delete:** deleting a `User` cascades to their `RefreshToken` rows (configured in
+  `PinballPVPContext.OnModelCreating`).
+
 ## Rate limiting
 
 `POST /api/auth` (login) and `POST /api/users` (registration) are unauthenticated and thus the prime targets

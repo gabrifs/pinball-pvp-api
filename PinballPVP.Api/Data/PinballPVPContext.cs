@@ -16,6 +16,8 @@ public class PinballPVPContext : DbContext
 
     public DbSet<PlayerRecord> PlayerRecords { get; set; }
 
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // User <--One-to-One--> Player Record
@@ -52,6 +54,17 @@ public class PinballPVPContext : DbContext
             .WithMany()
             .HasForeignKey(match => match.LoserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Refresh Tokens
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne(rt => rt.User)
+            .WithMany()
+            .HasForeignKey(rt => rt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasIndex(rt => rt.TokenHash)
+            .IsUnique();
 
         base.OnModelCreating(modelBuilder);
     }
