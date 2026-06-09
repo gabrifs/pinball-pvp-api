@@ -6,5 +6,3 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 ## Deployment
 
 - [ ] **Set up CI/CD** (build, test, run migrations, deploy) — no pipeline exists yet.
-- [ ] **Document production configuration** (connection strings, JWT settings, allowed hosts/CORS origins) as
-      environment variables, separate from the checked-in `appsettings.Development.json`.

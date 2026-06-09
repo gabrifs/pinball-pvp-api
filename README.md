@@ -1,4 +1,4 @@
-# PinballPVP API
+﻿# PinballPVP API
 
 A REST API backing a Unity **head-to-head pinball game**, built with **ASP.NET Core (.NET 10)** and
 **PostgreSQL**. It handles player accounts and authentication, tracks solo (vs CPU) and versus (P2P
@@ -149,6 +149,77 @@ docker run -p 8080:8080 \
 > ```
 
 `GET /health` is suitable for use as a container liveness/readiness probe.
+
+## Configuration reference
+
+All configuration follows the standard ASP.NET Core convention: values in `appsettings.json` are the
+baseline, and environment variables override them using `__` as the section separator
+(e.g. `Jwt__Key` overrides `Jwt:Key`). Non-secret defaults are already set in `appsettings.json`;
+only the values marked **Secret** and any environment-specific overrides need to be supplied at runtime.
+
+### Database
+
+| Environment variable | Description | Default | Required |
+|---|---|---|---|
+| `ConnectionStrings__DefaultConnection` | PostgreSQL connection string | n/a | **Secret** |
+
+### ASP.NET Core
+
+| Environment variable | Description | Default | Required |
+|---|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | App environment (`Production`, `Development`) | `Production` | Optional |
+| `ASPNETCORE_HTTP_PORTS` | HTTP port the app binds to | `8080` | Optional |
+
+### JWT
+
+`Jwt__Key` must be at least 32 characters (256 bits) for HMAC-SHA256.
+The `Issuer` and `Audience` values must match what is embedded in game client builds -- only change them
+if you control the client validation.
+
+| Environment variable | Description | Default | Required |
+|---|---|---|---|
+| `Jwt__Key` | HMAC-SHA256 signing secret | n/a | **Secret** |
+| `Jwt__Issuer` | JWT `iss` claim | `PinballPVP.Api` | Optional |
+| `Jwt__Audience` | JWT `aud` claim | `PinballPVP.Client` | Optional |
+| `Jwt__ExpirationMinutes` | Access token lifetime (minutes) | `60` | Optional |
+| `Jwt__RefreshTokenExpirationDays` | Refresh token lifetime (days) | `30` | Optional |
+
+### Email (SMTP)
+
+Used to send password-recovery codes. `Email__Host`, `Email__FromAddress`, `Email__Username`, and
+`Email__Password` must all be set; the other values have sensible defaults.
+
+| Environment variable | Description | Default | Required |
+|---|---|---|---|
+| `Email__Host` | SMTP server hostname | n/a | Required |
+| `Email__Port` | SMTP server port (STARTTLS) | `587` | Optional |
+| `Email__FromAddress` | Sender email address | n/a | Required |
+| `Email__FromName` | Sender display name | `PinballPVP` | Optional |
+| `Email__Username` | SMTP authentication username | n/a | **Secret** |
+| `Email__Password` | SMTP authentication password | n/a | **Secret** |
+
+### CORS
+
+Required for any web or Unity WebGL client. Omitting this leaves CORS disabled (all cross-origin
+requests rejected), which is the correct default for a game backend with no web client.
+
+| Environment variable | Description | Default | Required |
+|---|---|---|---|
+| `Cors__AllowedOrigins__0`, `__1`, ... | Allowed origin URLs (one per index) | `[]` | If web/WebGL client |
+
+Example: `-e Cors__AllowedOrigins__0=https://play.example.com`
+
+### Maintenance
+
+| Environment variable | Description | Default | Required |
+|---|---|---|---|
+| `Maintenance__PurgeIntervalHours` | How often expired refresh tokens and pending matches are purged | `24` | Optional |
+
+### Password recovery
+
+| Environment variable | Description | Default | Required |
+|---|---|---|---|
+| `PasswordRecovery__ExpirationMinutes` | How long a recovery code remains valid (minutes) | `15` | Optional |
 
 ## API overview
 
