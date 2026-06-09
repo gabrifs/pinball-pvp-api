@@ -37,8 +37,13 @@ public class AuthController(
         if (user == null || !_passwordHasher.Verify(user.PasswordHash, dto.Password))
             return Unauthorized("Invalid username or password");
 
+        // Single-session policy: revoke any existing tokens before issuing a new one.
+        // This also cleans up dangling tokens from crashed/disconnected sessions.
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        await _refreshTokenService.RevokeAllForUserAsync(user.Id);
         var accessToken = _jwtTokenService.GenerateToken(user);
         var refreshToken = await _refreshTokenService.CreateAsync(user.Id);
+        await transaction.CommitAsync();
 
         return Ok(new LoginResponseDto(accessToken, refreshToken));
     }

@@ -29,9 +29,12 @@ that let clients obtain new access tokens without re-entering credentials. Key d
 - **Revocation / logout:** `POST /api/auth/logout` (`[Authorize]`) accepts the client's refresh token,
   validates it belongs to the authenticated user, and revokes it. It is idempotent — submitting an already-
   revoked/expired token returns `204` rather than an error.
-- **`IRefreshTokenService`** (`Services/Auth/`) handles generation, validation, and revocation; it's a
-  scoped service injected into `AuthController`. The service takes the raw token from the client, hashes it,
-  and looks it up — callers never deal with the hash directly.
+- **Single-session policy:** `Login` calls `RevokeAllForUserAsync` before issuing the new token (wrapped in
+  an explicit transaction), so only one active refresh token exists per user at any time. This naturally
+  cleans up dangling tokens from crashed/disconnected sessions — the player just logs in again.
+- **`IRefreshTokenService`** (`Services/Auth/`) handles generation, validation, revocation, and bulk
+  revocation; it's a scoped service injected into `AuthController`. The service takes the raw token from
+  the client, hashes it, and looks it up — callers never deal with the hash directly.
 - **Cascade delete:** deleting a `User` cascades to their `RefreshToken` rows (configured in
   `PinballPVPContext.OnModelCreating`).
 

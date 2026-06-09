@@ -42,4 +42,12 @@ public class RefreshTokenService(PinballPVPContext context, IConfiguration confi
         token.RevokedAt = DateTime.UtcNow;
         await context.SaveChangesAsync(ct);
     }
+
+    public async Task RevokeAllForUserAsync(int userId, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        await context.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), ct);
+    }
 }

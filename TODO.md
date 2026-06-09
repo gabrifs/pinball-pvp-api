@@ -15,6 +15,12 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
       both pass the checks and then hit the DB's unique index, surfacing as an unhandled `DbUpdateException`
       (500) instead of the friendly 400 message.
 
+## Maintenance
+
+- [ ] **Purge expired refresh tokens.** Every login creates a new `RefreshToken` row; expired rows are never
+      deleted automatically. Add a background job or scheduled task to delete rows where `ExpiresAt < UtcNow`
+      to prevent unbounded table growth at scale.
+
 ## Reliability & observability
 
 - [ ] **Add global exception handling** (`UseExceptionHandler` / `IExceptionHandler`) so unexpected errors
