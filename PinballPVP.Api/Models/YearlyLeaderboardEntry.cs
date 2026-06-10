@@ -1,14 +1,6 @@
-namespace PinballPVP.Api.Models;
+using PinballPVP.Api.Enums;
 
-public enum YearlyLeaderboardCategory
-{
-    SoloHighscore,
-    SoloWins,
-    SoloWinRate,
-    VersusHighscore,
-    VersusWins,
-    VersusWinRate,
-}
+namespace PinballPVP.Api.Models;
 
 // Top-3 snapshot per category per year, captured by the yearly rollover.
 // UserId is nullable (DeleteBehavior.SetNull) so the historical entry survives account deletion;
