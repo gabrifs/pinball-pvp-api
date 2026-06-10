@@ -79,7 +79,8 @@ public class UsersController(PinballPVPContext context, IPasswordHasher password
             Email = dto.Email,
             PasswordHash =  _passwordHasher.Hash(dto.Password),
 
-            PlayerRecord = new PlayerRecord()
+            PlayerRecord = new PlayerRecord(),
+            AllTimeBestRecord = new AllTimeBestRecord()
         };
 
         _context.Users.Add(user);

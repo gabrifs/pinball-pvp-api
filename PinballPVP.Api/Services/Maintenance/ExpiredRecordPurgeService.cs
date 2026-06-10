@@ -49,5 +49,8 @@ public class ExpiredRecordPurgeService(
             logger.LogInformation(
                 "Purged {Tokens} expired refresh token(s), {Pending} expired pending match(es), and {RecoveryCodes} used/expired password recovery code(s)",
                 deletedTokens, deletedPending, deletedRecoveryCodes);
+
+        var yearRolloverService = scope.ServiceProvider.GetRequiredService<IYearRolloverService>();
+        await yearRolloverService.ProcessAsync(ct);
     }
 }

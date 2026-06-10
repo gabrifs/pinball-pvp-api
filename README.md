@@ -16,11 +16,15 @@ each player — the foundation for the in-game leaderboards.
 - **Solo matches** — log a single-player session (final score, rounds won, win/loss) against your own highscore.
 - **Versus matches** — dual-confirmation P2P results: both participants must independently submit
   matching scores before a match is recorded, preventing one-sided forgery.
-- **Player records** — aggregated solo/versus win-loss counts and highscores per user.
+- **Player records** — aggregated solo/versus win-loss counts and highscores per user (year-to-date),
+  plus continuously-tracked all-time-best records with the year each was achieved.
 - **Leaderboards** — paginated rankings for solo and versus modes, each with three categories:
   highscore, raw wins, and win rate (`wins / (wins + losses) × 100`, rounded to 2 dp). Supports the
   same `?period=week|month|year` filter as match endpoints — omit for all-time. Only players who have
   played at least one match in the tracked mode and period appear.
+- **Yearly rollover & historical leaderboards** — at year end, the top 3 per leaderboard category are
+  snapshotted (`GET /api/v1/leaderboards/yearly/{year}`), year-to-date player records reset, and that
+  year's match history is pruned to keep the database size bounded.
 - **Period filters** — list matches filtered by `week`, `month` or `year`.
 - **Pagination** — all list endpoints accept `?page` and `?pageSize` (max 100); responses include
   `totalCount`, `totalPages`, `hasNextPage`, `hasPreviousPage`.
@@ -42,8 +46,8 @@ each player — the foundation for the in-game leaderboards.
 ```text
 PinballPVP.Api/
 ├── Controllers/   # API endpoints (Auth, Users, SoloMatches, VersusMatches, PlayerRecords, Leaderboards)
-├── Models/        # EF Core entities (User, SoloMatch, VersusMatch, PlayerRecord,
-│                  #   RefreshToken, PendingVersusMatch, PasswordRecoveryCode)
+├── Models/        # EF Core entities (User, SoloMatch, VersusMatch, PlayerRecord, AllTimeBestRecord,
+│                  #   YearlyLeaderboardEntry, RefreshToken, PendingVersusMatch, PasswordRecoveryCode)
 ├── Dtos/          # Request/response DTOs, grouped by feature (User, Login, Matches,
 │                  #   Player Records, Leaderboards); includes shared PagedResult<T> wrapper
 ├── Data/          # PinballPVPContext (EF Core DbContext) and entity configuration
@@ -253,7 +257,7 @@ obtained via `POST /api/v1/auth`.
 | GET    | `/api/v1/users/{id}`                    |      | Get a single user                                           |
 | POST   | `/api/v1/users`                         |      | Register a new user                                         |
 | PATCH  | `/api/v1/users/{id}/nickname`           |  🔒  | Update your own nickname (caller must match `{id}`)         |
-| GET    | `/api/v1/users/playerrecords/{id}`      |      | Get a user's aggregated player record                       |
+| GET    | `/api/v1/users/playerrecords/{id}`      |      | Get a user's player record (year-to-date stats + all-time bests) |
 | GET    | `/api/v1/solomatches`                   |      | List solo matches (paginated, optional `?period`)           |
 | GET    | `/api/v1/solomatches/{id}`              |      | Get a single solo match                                     |
 | GET    | `/api/v1/solomatches/user/{userId}`     |      | List a user's solo matches (paginated, optional `?period`)  |
@@ -269,6 +273,7 @@ obtained via `POST /api/v1/auth`.
 | GET    | `/api/v1/leaderboards/versus/wins`      |      | Versus leaderboard by wins (paginated, `?period`)           |
 | GET    | `/api/v1/leaderboards/versus/winrate`   |      | Versus leaderboard by win rate (paginated, `?period`)       |
 | GET    | `/api/v1/leaderboards/player/{userId}`  |      | All ranks for one player across every leaderboard category  |
+| GET    | `/api/v1/leaderboards/yearly/{year}`    |      | Top-3 snapshot per category for a past year (404 if none)   |
 | GET    | `/health`                               |      | Health check — reports database connectivity status         |
 
 ### Authentication

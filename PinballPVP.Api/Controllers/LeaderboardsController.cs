@@ -6,15 +6,20 @@ using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Dtos.Leaderboards;
 using PinballPVP.Api.Extensions;
+using PinballPVP.Api.Models;
 
 namespace PinballPVP.Api.Controllers;
 
 [ApiVersion(1)]
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
-public class LeaderboardsController(PinballPVPContext context) : ControllerBase
+public class LeaderboardsController(PinballPVPContext context, IConfiguration configuration) : ControllerBase
 {
     private readonly PinballPVPContext _context = context;
+
+    // Players need at least this many matches in the period to appear on a WinRate leaderboard —
+    // otherwise a single win (100% with 1 match) would top the board over established players.
+    private readonly int _winRateMinMatches = configuration.GetValue("Leaderboard:WinRateMinMatches", 10);
 
     [HttpGet("solo/highscore")]
     public async Task<ActionResult<PagedResult<SoloLeaderboardEntryDto>>> GetSoloHighscoreLeaderboard(
@@ -48,7 +53,8 @@ public class LeaderboardsController(PinballPVPContext context) : ControllerBase
             return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
         return await GetSoloLeaderboardAsync(
             period,
-            s => s.OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses) * 100),
+            s => s.Where(x => x.Wins + x.Losses >= _winRateMinMatches)
+                  .OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses) * 100),
             page, pageSize);
     }
 
@@ -84,8 +90,25 @@ public class LeaderboardsController(PinballPVPContext context) : ControllerBase
             return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
         return await GetVersusLeaderboardAsync(
             period,
-            s => s.OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses) * 100),
+            s => s.Where(x => x.Wins + x.Losses >= _winRateMinMatches)
+                  .OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses) * 100),
             page, pageSize);
+    }
+
+    [HttpGet("yearly/{year}")]
+    public async Task<ActionResult<YearlyLeaderboardResponseDto>> GetYearlyLeaderboard(int year)
+    {
+        if (!await _context.YearlyLeaderboardEntries.AnyAsync(e => e.Year == year))
+            return NotFound();
+
+        return Ok(new YearlyLeaderboardResponseDto(
+            year,
+            await GetYearlyCategoryAsync(year, YearlyLeaderboardCategory.SoloHighscore),
+            await GetYearlyCategoryAsync(year, YearlyLeaderboardCategory.SoloWins),
+            await GetYearlyCategoryAsync(year, YearlyLeaderboardCategory.SoloWinRate),
+            await GetYearlyCategoryAsync(year, YearlyLeaderboardCategory.VersusHighscore),
+            await GetYearlyCategoryAsync(year, YearlyLeaderboardCategory.VersusWins),
+            await GetYearlyCategoryAsync(year, YearlyLeaderboardCategory.VersusWinRate)));
     }
 
     [HttpGet("player/{userId}")]
@@ -114,7 +137,8 @@ public class LeaderboardsController(PinballPVPContext context) : ControllerBase
         {
             var byHighscore = soloStats.OrderByDescending(x => x.Highscore).ToList();
             var byWins      = soloStats.OrderByDescending(x => x.Wins).ToList();
-            var byWinRate   = soloStats.OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses)).ToList();
+            var byWinRate   = soloStats.Where(x => x.Wins + x.Losses >= _winRateMinMatches)
+                .OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses)).ToList();
             soloRank = new SoloRankDto(
                 playerSolo.Highscore,
                 playerSolo.Wins,
@@ -131,7 +155,8 @@ public class LeaderboardsController(PinballPVPContext context) : ControllerBase
         {
             var byHighscore = versusStats.OrderByDescending(x => x.Highscore).ToList();
             var byWins      = versusStats.OrderByDescending(x => x.Wins).ToList();
-            var byWinRate   = versusStats.OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses)).ToList();
+            var byWinRate   = versusStats.Where(x => x.Wins + x.Losses >= _winRateMinMatches)
+                .OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses)).ToList();
             versusRank = new VersusRankDto(
                 playerVersus.Highscore,
                 playerVersus.Wins,
@@ -191,6 +216,16 @@ public class LeaderboardsController(PinballPVPContext context) : ControllerBase
             .ToList();
 
         return Ok(new PagedResult<VersusLeaderboardEntryDto>(ranked, page, pageSize, sorted.Count));
+    }
+
+    private async Task<List<YearlyLeaderboardEntryDto>> GetYearlyCategoryAsync(int year, YearlyLeaderboardCategory category)
+    {
+        return await _context.YearlyLeaderboardEntries
+            .AsNoTracking()
+            .Where(e => e.Year == year && e.Category == category)
+            .OrderBy(e => e.Rank)
+            .Select(YearlyLeaderboardEntryDto.Projection)
+            .ToListAsync();
     }
 
     // Aggregates solo matches (with optional period filter) into per-player stats.

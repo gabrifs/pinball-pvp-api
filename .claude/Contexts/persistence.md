@@ -40,4 +40,30 @@
   service. It runs once on startup then on a configurable interval (`Maintenance:PurgeIntervalHours`,
   default 24 h) and bulk-deletes expired `RefreshToken` rows, expired `PendingVersusMatch` rows, and
   used/expired `PasswordRecoveryCode` rows via `ExecuteDeleteAsync`. It creates its own `IServiceScope`
-  per run since `DbContext` is scoped and `BackgroundService` is singleton.
+  per run since `DbContext` is scoped and `BackgroundService` is singleton. Each run also resolves
+  `IYearRolloverService` from the same scope and calls `ProcessAsync` (see below).
+- `YearRolloverService` (`Services/Maintenance/`, `IYearRolloverService`) performs the yearly data
+  rollover. It's kept as its own scoped service (SOLID/unit-testable in isolation) but invoked from
+  `ExpiredRecordPurgeService` every cycle rather than on its own schedule. `ProcessAsync` finds every
+  distinct year with `SoloMatch`/`VersusMatch` rows dated before `Jan 1` of the current year (UTC,
+  via `PeriodFilterExtensions.GetYearRange`) and processes them in chronological order. For each prior
+  year, the work runs inside a transaction via `context.Database.CreateExecutionStrategy().ExecuteAsync(...)`
+  — required because `EnableRetryOnFailure` forbids ad-hoc `BeginTransactionAsync` outside an execution
+  strategy:
+  1. Snapshot every `PlayerRecord` (joined to `User.Nickname`, `AsNoTracking`) and compute the top 3 per
+     `YearlyLeaderboardCategory`. Highscore/Wins categories require `Wins + Losses > 0` (mirrors the
+     live leaderboards' "no matches → not listed" guarantee); WinRate categories require
+     `Wins + Losses >= Leaderboard:WinRateMinMatches` (default 10), with
+     `Value = Math.Round(Wins / (Wins + Losses) * 100, 2)`. Insert the resulting `YearlyLeaderboardEntry`
+     rows.
+  2. Reset all `PlayerRecord` aggregate fields to zero via `ExecuteUpdateAsync` — from this point
+     `PlayerRecord` is year-to-date only (see [entities.md](entities.md)). `AllTimeBestRecord` is
+     untouched (it's maintained separately, on every match).
+  3. Bulk-delete that year's `SoloMatch`/`VersusMatch` rows via `ExecuteDeleteAsync`, scoped with
+     `PeriodFilterExtensions.GetYearRange(year)`.
+
+  **Multi-year backlog**: if the service has been down across more than one New Year's boundary, only the
+  first processed prior year produces a meaningful snapshot — by the time later years are processed,
+  `PlayerRecord` has already been zeroed, so their `qualifies` filters yield no rows (no
+  `YearlyLeaderboardEntry` rows are inserted for them, but their matches are still pruned). This is a
+  graceful no-op, acceptable given the service runs at least daily by default.

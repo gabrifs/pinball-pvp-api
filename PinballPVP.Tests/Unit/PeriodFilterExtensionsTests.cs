@@ -32,4 +32,18 @@ public class PeriodFilterExtensionsTests
     {
         Assert.False(period.IsValidPeriod());
     }
+
+    [Theory]
+    [InlineData(2024)]
+    [InlineData(2025)]
+    public void GetYearRange_ReturnsJanFirstToJanFirstNextYear_Utc(int year)
+    {
+        var (start, end) = PeriodFilterExtensions.GetYearRange(year);
+
+        Assert.Equal(new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc), start);
+        Assert.Equal(DateTimeKind.Utc, start.Kind);
+
+        Assert.Equal(new DateTime(year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc), end);
+        Assert.Equal(DateTimeKind.Utc, end.Kind);
+    }
 }

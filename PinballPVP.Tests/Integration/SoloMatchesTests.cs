@@ -52,6 +52,14 @@ public class SoloMatchesTests(PinballApiFactory factory) : IntegrationTestBase(f
         Assert.Equal(1, record!.SoloWins);
         Assert.Equal(0, record.SoloLosses);
         Assert.Equal(5000, record.SoloHighscore);
+
+        var currentYear = DateTime.UtcNow.Year;
+        Assert.Equal(5000, record.AllTimeBest.SoloHighscore);
+        Assert.Equal(currentYear, record.AllTimeBest.SoloHighscoreYear);
+        Assert.Equal(1, record.AllTimeBest.SoloWins);
+        Assert.Equal(currentYear, record.AllTimeBest.SoloWinsYear);
+        Assert.Equal(1, record.AllTimeBest.SoloMatchesPlayed);
+        Assert.Equal(currentYear, record.AllTimeBest.SoloMatchesPlayedYear);
     }
 
     [Fact]
@@ -88,6 +96,7 @@ public class SoloMatchesTests(PinballApiFactory factory) : IntegrationTestBase(f
             $"/api/v1/users/playerrecords/{userId}");
 
         Assert.Equal(5000, record!.SoloHighscore); // Stays at the peak
+        Assert.Equal(5000, record.AllTimeBest.SoloHighscore); // Stays at the peak
     }
 
     [Fact]

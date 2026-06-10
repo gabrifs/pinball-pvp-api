@@ -85,6 +85,7 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
 
         var user = await _context.Users
             .Include(u => u.PlayerRecord)
+            .Include(u => u.AllTimeBestRecord)
             .FirstOrDefaultAsync(u => u.Id == dto.UserId);
 
         if (user == null)
@@ -106,6 +107,8 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
             user.PlayerRecord.SoloLosses++;
 
         user.PlayerRecord.SoloHighscore = Math.Max(user.PlayerRecord.SoloHighscore, dto.FinalScore);
+
+        user.AllTimeBestRecord.UpdateFromSolo(user.PlayerRecord, match.PlayedAt.Year);
 
         _context.SoloMatches.Add(match);
         await _context.SaveChangesAsync();
