@@ -10,10 +10,10 @@ public class SmtpEmailService(IConfiguration configuration) : IEmailService
     {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(
-            configuration["Email:FromName"] ?? "PinballPVP",
+            configuration["Email:FromName"] ?? "Dogfighters Pinball",
             configuration["Email:FromAddress"]!));
         message.To.Add(new MailboxAddress(toNickname, toEmail));
-        message.Subject = "PinballPVP — Password Recovery";
+        message.Subject = "Dogfighters — Password Recovery";
         message.Body = new TextPart("plain")
         {
             Text = $"""
@@ -25,7 +25,7 @@ public class SmtpEmailService(IConfiguration configuration) : IEmailService
 
                 This code expires in {expirationMinutes} minutes. If you didn't request a password reset, you can safely ignore this email.
 
-                — PinballPVP
+                — Steel Horse Studios
                 """
         };
 
