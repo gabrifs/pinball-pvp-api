@@ -28,7 +28,7 @@
     <!-- Pin EF Core to match the main project — Testcontainers brings in an older transitive version -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.8" />
-    <PackageReference Include="Respawn" Version="6.2.1" />
+    <PackageReference Include="Respawn" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>

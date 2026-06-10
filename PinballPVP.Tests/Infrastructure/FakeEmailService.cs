@@ -6,7 +6,7 @@ public class FakeEmailService : IEmailService
 {
     public string? LastRecoveryCode { get; private set; }
 
-    public Task SendPasswordRecoveryAsync(string toEmail, string toNickname, string recoveryCode, CancellationToken ct = default)
+    public Task SendPasswordRecoveryAsync(string toEmail, string toNickname, string recoveryCode, int expirationMinutes, CancellationToken ct = default)
     {
         LastRecoveryCode = recoveryCode;
         return Task.CompletedTask;

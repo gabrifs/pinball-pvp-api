@@ -14,6 +14,4 @@ public class PasswordRecoveryCode
     public bool Used { get; set; }
 
     public User User { get; set; } = null!;
-
-    public bool IsValid => !Used && DateTime.UtcNow < ExpiresAt;
 }
