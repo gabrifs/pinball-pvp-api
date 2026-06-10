@@ -27,22 +27,22 @@ See [TODO.md](TODO.md) for the production-readiness roadmap (security hardening,
   what was done and why), and add newly-discovered items.
 - **Never write secrets or sensitive data into any tracked file** — connection strings, signing/API keys,
   passwords, tokens, certificates, etc. must only ever live in `dotnet user-secrets` (local dev) or
-  environment variables/a secrets manager (other environments); see [Claude/Contexts/auth.md](Claude/Contexts/auth.md) and the
-  `user-secrets` note under [EF Core migrations](Claude/Commands.md#ef-core-migrations). Once committed, a secret is in git
+  environment variables/a secrets manager (other environments); see [.claude/Contexts/auth.md](.claude/Contexts/auth.md) and the
+  `user-secrets` note under [EF Core migrations](.claude/Commands.md#ef-core-migrations). Once committed, a secret is in git
   history permanently (even if later removed from the working tree) — treat any value that reaches a commit
   as compromised and rotate it rather than relying on a follow-up commit to "remove" it.
-- When a feature area grows enough conventions to need documenting, add a new file under `Claude/Contexts/`
-  rather than growing this file inline — see [Feature-specific conventions](Claude/Architecture.md#feature-specific-conventions-claudecontexts)
+- When a feature area grows enough conventions to need documenting, add a new file under `.claude/Contexts/`
+  rather than growing this file inline — see [Feature-specific conventions](.claude/Architecture.md#feature-specific-conventions-claudecontexts)
   below for the existing examples and the rationale.
-- Whenever you work on a feature, keep its file under `Claude/Contexts/` up to date — document what it does,
+- Whenever you work on a feature, keep its file under `.claude/Contexts/` up to date — document what it does,
   key decisions, and gotchas as part of the same change, so a future session can refresh context on that area
   without re-deriving it from the diff.
 
 ## Commands
 
-See [Claude/Commands.md](Claude/Commands.md) for build/run/test commands, CI/CD, Docker, and EF Core migrations.
+See [.claude/Commands.md](.claude/Commands.md) for build/run/test commands, CI/CD, Docker, and EF Core migrations.
 
 ## Architecture
 
-See [Claude/Architecture.md](Claude/Architecture.md) for layering and the index of feature-specific
-convention files under `Claude/Contexts/`.
+See [.claude/Architecture.md](.claude/Architecture.md) for layering and the index of feature-specific
+convention files under `.claude/Contexts/`.

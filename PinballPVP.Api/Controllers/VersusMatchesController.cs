@@ -89,6 +89,7 @@ public class VersusMatchesController(PinballPVPContext context) : ControllerBase
 
         var users = await _context.Users
             .Include(user => user.PlayerRecord)
+            .Include(user => user.AllTimeBestRecord)
             .Where(user => user.Id == dto.WinnerId || user.Id == dto.LoserId)
             .ToListAsync();
 
@@ -162,6 +163,9 @@ public class VersusMatchesController(PinballPVPContext context) : ControllerBase
             loser.PlayerRecord.VersusHighscore = Math.Max(
                 loser.PlayerRecord.VersusHighscore,
                 dto.LoserFinalScore);
+
+            winner.AllTimeBestRecord.UpdateFromVersus(winner.PlayerRecord, now.Year);
+            loser.AllTimeBestRecord.UpdateFromVersus(loser.PlayerRecord, now.Year);
 
             _context.VersusMatches.Add(match);
             await _context.SaveChangesAsync();

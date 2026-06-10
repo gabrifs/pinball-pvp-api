@@ -16,4 +16,5 @@ public class User()
     public required string PasswordHash { get; set; }
 
     public PlayerRecord PlayerRecord { get; set; } = null!; // One-to-One connection
+    public AllTimeBestRecord AllTimeBestRecord { get; set; } = null!; // One-to-One connection
 }

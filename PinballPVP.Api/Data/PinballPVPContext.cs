@@ -15,6 +15,10 @@ public class PinballPVPContext : DbContext
 
     public DbSet<PlayerRecord> PlayerRecords { get; set; }
 
+    public DbSet<AllTimeBestRecord> AllTimeBestRecords { get; set; }
+
+    public DbSet<YearlyLeaderboardEntry> YearlyLeaderboardEntries { get; set; }
+
     public DbSet<RefreshToken> RefreshTokens { get; set; }
 
     public DbSet<PendingVersusMatch> PendingVersusMatches { get; set; }
@@ -33,6 +37,28 @@ public class PinballPVPContext : DbContext
             .HasOne(user => user.PlayerRecord)
             .WithOne(playerRecord => playerRecord.User)
             .HasForeignKey<PlayerRecord>(playerRecord => playerRecord.UserId);
+
+        // User <--One-to-One--> All-Time Best Record
+        // AllTimeBestRecord: Set UserID as the Primary Key
+        modelBuilder.Entity<AllTimeBestRecord>()
+            .HasKey(bestRecord => bestRecord.UserId);
+
+        modelBuilder.Entity<User>()
+            .HasOne(user => user.AllTimeBestRecord)
+            .WithOne(bestRecord => bestRecord.User)
+            .HasForeignKey<AllTimeBestRecord>(bestRecord => bestRecord.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Yearly Leaderboard Entries: nullable UserId so historical entries survive account deletion
+        modelBuilder.Entity<YearlyLeaderboardEntry>()
+            .HasOne(entry => entry.User)
+            .WithMany()
+            .HasForeignKey(entry => entry.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<YearlyLeaderboardEntry>()
+            .HasIndex(entry => new { entry.Year, entry.Category, entry.Rank })
+            .IsUnique();
 
         // Solo Matches
         // Configure One User to Many Solo Matches relationship and UserID as Foreign Key

@@ -44,6 +44,7 @@ public class PinballApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Jwt:Audience"] = "PinballPVP.Client",
                 ["Jwt:ExpirationMinutes"] = "60",
                 ["Jwt:RefreshTokenExpirationDays"] = "30",
+                ["Leaderboard:WinRateMinMatches"] = "3",
             });
         });
 

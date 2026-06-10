@@ -8,10 +8,10 @@ a controller (password hashing, JWT issuing) are extracted into `Services/` and 
 `Dtos/` and are the boundary between EF entities (`Models/`) and the wire format; entities are never returned
 directly from endpoints.
 
-## Feature-specific conventions (`Claude/Contexts/`)
+## Feature-specific conventions (`.claude/Contexts/`)
 
 The detailed, per-area conventions below used to live inline here — they've been split into standalone files
-under `Claude/Contexts/` so this file stays manageable as the project grows. They are **not** auto-loaded;
+under `.claude/Contexts/` so this file stays manageable as the project grows. They are **not** auto-loaded;
 read the relevant one before working in that area, and add new ones here following the same pattern as the
 codebase gains features:
 

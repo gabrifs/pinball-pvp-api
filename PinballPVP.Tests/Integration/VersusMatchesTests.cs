@@ -84,6 +84,22 @@ public class VersusMatchesTests(PinballApiFactory factory) : IntegrationTestBase
         Assert.Equal(0, bobRecord!.VersusWins);
         Assert.Equal(1, bobRecord.VersusLosses);
         Assert.Equal(dto.LoserFinalScore, bobRecord.VersusHighscore);
+
+        var currentYear = DateTime.UtcNow.Year;
+
+        Assert.Equal(dto.WinnerFinalScore, aliceRecord.AllTimeBest.VersusHighscore);
+        Assert.Equal(currentYear, aliceRecord.AllTimeBest.VersusHighscoreYear);
+        Assert.Equal(1, aliceRecord.AllTimeBest.VersusWins);
+        Assert.Equal(currentYear, aliceRecord.AllTimeBest.VersusWinsYear);
+        Assert.Equal(1, aliceRecord.AllTimeBest.VersusMatchesPlayed);
+        Assert.Equal(currentYear, aliceRecord.AllTimeBest.VersusMatchesPlayedYear);
+
+        Assert.Equal(dto.LoserFinalScore, bobRecord.AllTimeBest.VersusHighscore);
+        Assert.Equal(currentYear, bobRecord.AllTimeBest.VersusHighscoreYear);
+        Assert.Equal(0, bobRecord.AllTimeBest.VersusWins);
+        Assert.Null(bobRecord.AllTimeBest.VersusWinsYear);
+        Assert.Equal(1, bobRecord.AllTimeBest.VersusMatchesPlayed);
+        Assert.Equal(currentYear, bobRecord.AllTimeBest.VersusMatchesPlayedYear);
     }
 
     [Fact]
