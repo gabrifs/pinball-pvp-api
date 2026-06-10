@@ -6,7 +6,7 @@ using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Dtos.Leaderboards;
 using PinballPVP.Api.Extensions;
-using PinballPVP.Api.Models;
+using PinballPVP.Api.Enums;
 
 namespace PinballPVP.Api.Controllers;
 
