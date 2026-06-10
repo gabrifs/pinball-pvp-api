@@ -5,7 +5,51 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Deployment
 
-- [ ] **Evaluate Fly.io as hosting target** — assess whether Fly.io is a good fit for containerized deployment of this API (pricing, Postgres managed DB, secrets management, region selection, cold-start behaviour for a game backend). Decision gates the deploy step below.
-- [ ] **Configure deploy step in CI/CD** — pipeline builds, tests, and pushes the image; the deploy
-  step (run migrations + roll out new container) is a placeholder until a hosting target is chosen.
-  See the comment at the bottom of [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+- [ ] **Implement self-hosted docker-compose deployment** — architecture is decided: a
+  self-hosted GitHub Actions runner on a Windows PC (Docker Desktop) runs the CI deploy step
+  directly; `docker-compose.yml` defines `db` (Postgres, persistent volume, not exposed to the
+  host) + `api` (the only published port, HTTP-only on 8080) + a one-off `migrate` service that
+  applies pending migrations via an EF Core migration bundle before `api` is rolled out. Secrets
+  live in a `.env` file on the host, outside the git checkout. See the comment at the bottom of
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+- [ ] **TLS / reverse proxy / public network exposure** — once the deployment above is live, the
+  API runs HTTP-only on port 8080, reachable over LAN/port-forward only. Decide on a TLS
+  termination strategy (e.g. a reverse proxy such as Caddy/nginx/Traefik added to the compose
+  stack, or a tunnel like Cloudflare Tunnel/Tailscale Funnel) before exposing the API beyond the
+  local network. Once decided, revisit `UseHttpsRedirection()` (currently a no-op — see
+  [persistence.md](.claude/Contexts/persistence.md)) and the `ASPNETCORE_HTTP_PORTS`/`EXPOSE`
+  settings in the Dockerfile if an HTTPS port needs to be bound directly.
+
+- [ ] **Database backups** — once Postgres is self-hosted as a docker-compose container, it
+  becomes the permanent home for production player data with no managed backups; a host disk
+  failure would mean total data loss. Plan and implement a backup strategy (e.g. scheduled
+  `pg_dump` of the `pgdata` volume to an external/offsite location).
+
+## Architecture & code quality
+
+- [ ] **Split Controllers into smaller services** — controllers currently own all business
+  logic directly against `PinballPVPContext` (see [Architecture.md](.claude/Architecture.md)) —
+  validation, aggregation, and persistence are all concentrated in single action methods (e.g.
+  `LeaderboardsController`, `SoloMatchesController`, `VersusMatchesController`). Review each
+  controller and extract cohesive units of work into injectable services to follow S.O.L.I.D.
+  and keep controllers thin, maintainable, and scalable.
+
+## Performance
+
+- [ ] **Limit leaderboard queries to the top 100** — `LeaderboardsController`'s aggregation
+  helpers (`GetSoloStatsAsync`/`GetVersusStatsAsync`, see
+  [controllers.md](.claude/Contexts/controllers.md)) currently load every player's stats for the
+  selected period before sorting and paginating in memory. As the player base grows this becomes
+  an unbounded query/aggregation over the whole table. Investigate capping the overall
+  leaderboards to the top 100 players (e.g. push sorting/limiting into the SQL query) instead of
+  loading and sorting the full result set.
+
+## Reliability
+
+- [ ] **Make match-creation win/loss updates idempotent** — `SoloMatchesController` and
+  `VersusMatchesController` increment `PlayerRecord`/`AllTimeBestRecord` win/loss counters
+  directly as a side effect of `CreateMatch` (see [entities.md](.claude/Contexts/entities.md)).
+  A retried request (client timeout, dropped connection, reconnect resubmitting the same result)
+  could double-count a win or loss. Review for idempotency — e.g. a client-supplied idempotency
+  key, or detecting/deduplicating near-identical recent submissions.
