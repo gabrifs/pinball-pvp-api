@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PinballPVP.Api.Data;
+using PinballPVP.Api.Enums;
 using PinballPVP.Api.Extensions;
 using PinballPVP.Api.Models;
 
