@@ -146,7 +146,7 @@ public class AuthController(
 
         await _context.SaveChangesAsync();
 
-        await _emailService.SendPasswordRecoveryAsync(user.Email, user.Nickname, rawCode);
+        await _emailService.SendPasswordRecoveryAsync(user.Email, user.Nickname, rawCode, expirationMinutes);
 
         return Ok();
     }
@@ -176,6 +176,10 @@ public class AuthController(
         user.PasswordHash = _passwordHasher.Hash(dto.NewPassword);
 
         await _context.SaveChangesAsync();
+
+        // A password reset is often prompted by a compromised credential, so revoke any
+        // existing refresh tokens — mirrors the single-session policy enforced on Login.
+        await _refreshTokenService.RevokeAllForUserAsync(user.Id);
 
         return Ok();
     }

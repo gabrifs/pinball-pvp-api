@@ -4,6 +4,12 @@
   validation, CORS, JWT authentication/authorization, rate limiting, application services, Serilog, and
   Swagger (Swagger UI only in `Development`). Middleware order matters:
   `UseExceptionHandler()` runs first (catches anything that escapes later middleware);
+  `UseHttpsRedirection()` runs next — in the production Docker image (HTTP-only port 8080, no HTTPS port
+  configured, no `UseForwardedHeaders()`), ASP.NET Core can't determine an HTTPS port, so this logs a
+  one-time warning and passes requests through unchanged rather than redirecting; it's only meaningful
+  for hosting where both HTTP and HTTPS ports are bound directly to the app (e.g. the local `https`
+  launch profile). Revisit once a hosting target with TLS termination is chosen — see
+  [TODO.md](../../TODO.md);
   `UseMiddleware<CorrelationIdMiddleware>()` runs next (assigns `X-Correlation-ID` so it's in scope for all
   subsequent logs); `UseSerilogRequestLogging()` runs after that (logs each request with timing + correlation
   ID); `UseCors()` runs before `UseRateLimiter()` (preflight OPTIONS handled before rate limiter);
@@ -32,6 +38,6 @@
   from the client DTO.
 - `ExpiredRecordPurgeService` (`Services/Maintenance/`) is a `BackgroundService` registered as a hosted
   service. It runs once on startup then on a configurable interval (`Maintenance:PurgeIntervalHours`,
-  default 24 h) and bulk-deletes expired `RefreshToken` and `PendingVersusMatch` rows via
-  `ExecuteDeleteAsync`. It creates its own `IServiceScope` per run since `DbContext` is scoped and
-  `BackgroundService` is singleton.
+  default 24 h) and bulk-deletes expired `RefreshToken` rows, expired `PendingVersusMatch` rows, and
+  used/expired `PasswordRecoveryCode` rows via `ExecuteDeleteAsync`. It creates its own `IServiceScope`
+  per run since `DbContext` is scoped and `BackgroundService` is singleton.

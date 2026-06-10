@@ -56,8 +56,7 @@ both rate-limited via `RateLimiterPolicyNames.AuthEndpoints` like `Login`/`Refre
 
 - **`PasswordRecoveryCode`** (`Models/`) — `UserId` (FK to `User`, `DeleteBehavior.Cascade`), `CodeHash`
   (SHA-256 hash of the raw code; the raw code itself is never persisted), `ExpiresAt`, `Used`. Indexed on
-  `(UserId, Used)`. Its `IsValid` computed property (`!Used && DateTime.UtcNow < ExpiresAt`) is currently
-  unused — the controller inlines the same check directly into its EF queries (see [Review.md](../Review.md)).
+  `(UserId, Used)`.
 - **`ForgotPassword`** — looks up the user by `dto.UserId`. If not found, returns `Ok()` immediately
   without revealing whether the account exists. Otherwise:
   1. Invalidates any still-active codes for that user via `ExecuteUpdateAsync` (sets `Used = true`), so
@@ -65,17 +64,18 @@ both rate-limited via `RateLimiterPolicyNames.AuthEndpoints` like `Login`/`Refre
   2. Generates an 8-character uppercase hex code (`RandomNumberGenerator.GetBytes(4)`), hashes it with
      SHA-256 (`AuthController.HashCode`, mirroring `RefreshTokenService`'s hashing pattern), and stores it
      with `ExpiresAt = UtcNow + PasswordRecovery:ExpirationMinutes` (config key, default 15).
-  3. Sends the **raw** code to the user's email via `IEmailService.SendPasswordRecoveryAsync` (see
-     "Email service" above).
+  3. Sends the **raw** code and the expiration window to the user's email via
+     `IEmailService.SendPasswordRecoveryAsync` (see "Email service" above).
 - **`ResetPassword`** — hashes `dto.RecoveryCode` and looks for a matching, unused, unexpired
-  `PasswordRecoveryCode` for `dto.UserId`. If found, marks it `Used = true` and overwrites
-  `user.PasswordHash` via `IPasswordHasher.Hash`. Does **not** currently revoke the user's existing
-  refresh tokens (see [Review.md](../Review.md)).
-- **Config:** `PasswordRecovery:ExpirationMinutes` (default 15 if absent) controls code lifetime — keep
-  in sync with the hardcoded "expires in 15 minutes" wording in `SmtpEmailService` (see
-  [Review.md](../Review.md)).
-- **Cleanup:** unlike `RefreshToken` and `PendingVersusMatch`, expired/used `PasswordRecoveryCode` rows
-  are not purged by `ExpiredRecordPurgeService` (see [Review.md](../Review.md)).
+  `PasswordRecoveryCode` for `dto.UserId`. If found, marks it `Used = true`, overwrites
+  `user.PasswordHash` via `IPasswordHasher.Hash`, and revokes all of the user's refresh tokens via
+  `IRefreshTokenService.RevokeAllForUserAsync` — mirroring the single-session policy enforced on `Login`,
+  since a password reset is often prompted by a compromised credential.
+- **Config:** `PasswordRecovery:ExpirationMinutes` (default 15 if absent) controls code lifetime and is
+  passed through to `SendPasswordRecoveryAsync` so the email text always matches the configured window.
+- **Cleanup:** `ExpiredRecordPurgeService` bulk-deletes `PasswordRecoveryCode` rows that are `Used` or
+  past `ExpiresAt`, alongside expired `RefreshToken`/`PendingVersusMatch` rows (see
+  [persistence.md](persistence.md)).
 
 ## Rate limiting
 

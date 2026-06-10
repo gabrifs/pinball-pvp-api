@@ -9,8 +9,9 @@ public class DatabaseHealthCheck(PinballPVPContext dbContext) : IHealthCheck
     {
         try
         {
-            await dbContext.Database.CanConnectAsync(ct);
-            return HealthCheckResult.Healthy();
+            return await dbContext.Database.CanConnectAsync(ct)
+                ? HealthCheckResult.Healthy()
+                : HealthCheckResult.Unhealthy();
         }
         catch (Exception ex)
         {

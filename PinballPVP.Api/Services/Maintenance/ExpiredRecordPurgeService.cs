@@ -41,9 +41,13 @@ public class ExpiredRecordPurgeService(
             .Where(p => p.ExpiresAt < now)
             .ExecuteDeleteAsync(ct);
 
-        if (deletedTokens > 0 || deletedPending > 0)
+        var deletedRecoveryCodes = await context.PasswordRecoveryCodes
+            .Where(rc => rc.Used || rc.ExpiresAt < now)
+            .ExecuteDeleteAsync(ct);
+
+        if (deletedTokens > 0 || deletedPending > 0 || deletedRecoveryCodes > 0)
             logger.LogInformation(
-                "Purged {Tokens} expired refresh token(s) and {Pending} expired pending match(es)",
-                deletedTokens, deletedPending);
+                "Purged {Tokens} expired refresh token(s), {Pending} expired pending match(es), and {RecoveryCodes} used/expired password recovery code(s)",
+                deletedTokens, deletedPending, deletedRecoveryCodes);
     }
 }

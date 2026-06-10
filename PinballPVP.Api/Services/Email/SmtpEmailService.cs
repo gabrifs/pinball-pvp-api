@@ -6,7 +6,7 @@ namespace PinballPVP.Api.Services.Email;
 
 public class SmtpEmailService(IConfiguration configuration) : IEmailService
 {
-    public async Task SendPasswordRecoveryAsync(string toEmail, string toNickname, string recoveryCode, CancellationToken ct = default)
+    public async Task SendPasswordRecoveryAsync(string toEmail, string toNickname, string recoveryCode, int expirationMinutes, CancellationToken ct = default)
     {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(
@@ -23,7 +23,7 @@ public class SmtpEmailService(IConfiguration configuration) : IEmailService
 
                 {recoveryCode}
 
-                This code expires in 15 minutes. If you didn't request a password reset, you can safely ignore this email.
+                This code expires in {expirationMinutes} minutes. If you didn't request a password reset, you can safely ignore this email.
 
                 — PinballPVP
                 """
