@@ -15,7 +15,7 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
     3. Bulk-delete that year's matches via `ExecuteDeleteAsync` scoped with `GetYearRange`
   - Add EF Core migrations for both new tables.
   - Add endpoint `GET /api/v1/leaderboards/yearly/{year}` returning `YearlyLeaderboardEntry` data for the given year, grouped by category.
-  - Update `Claude/entities.md` to document that `PlayerRecord` is year-to-date (resets each rollover), and `AllTimeBestRecord` is the continuously-maintained personal best per player with the year each record was set.
+  - Update `Claude/Contexts/entities.md` to document that `PlayerRecord` is year-to-date (resets each rollover), and `AllTimeBestRecord` is the continuously-maintained personal best per player with the year each record was set.
 
 ## Leaderboards
 

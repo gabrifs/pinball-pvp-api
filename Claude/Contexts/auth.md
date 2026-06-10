@@ -49,6 +49,34 @@ Configuration lives in the `Email` config section. Non-sensitive keys (`Host`, `
 via `dotnet user-secrets` (local dev) or environment variables / a secrets manager (other
 environments) — never committed to a config file.
 
+## Password recovery
+
+`POST /api/auth/forgot-password` and `POST /api/auth/reset-password` implement a recovery-code flow,
+both rate-limited via `RateLimiterPolicyNames.AuthEndpoints` like `Login`/`Refresh`.
+
+- **`PasswordRecoveryCode`** (`Models/`) — `UserId` (FK to `User`, `DeleteBehavior.Cascade`), `CodeHash`
+  (SHA-256 hash of the raw code; the raw code itself is never persisted), `ExpiresAt`, `Used`. Indexed on
+  `(UserId, Used)`. Its `IsValid` computed property (`!Used && DateTime.UtcNow < ExpiresAt`) is currently
+  unused — the controller inlines the same check directly into its EF queries (see [Review.md](../Review.md)).
+- **`ForgotPassword`** — looks up the user by `dto.UserId`. If not found, returns `Ok()` immediately
+  without revealing whether the account exists. Otherwise:
+  1. Invalidates any still-active codes for that user via `ExecuteUpdateAsync` (sets `Used = true`), so
+     only the most recently issued code is ever valid.
+  2. Generates an 8-character uppercase hex code (`RandomNumberGenerator.GetBytes(4)`), hashes it with
+     SHA-256 (`AuthController.HashCode`, mirroring `RefreshTokenService`'s hashing pattern), and stores it
+     with `ExpiresAt = UtcNow + PasswordRecovery:ExpirationMinutes` (config key, default 15).
+  3. Sends the **raw** code to the user's email via `IEmailService.SendPasswordRecoveryAsync` (see
+     "Email service" above).
+- **`ResetPassword`** — hashes `dto.RecoveryCode` and looks for a matching, unused, unexpired
+  `PasswordRecoveryCode` for `dto.UserId`. If found, marks it `Used = true` and overwrites
+  `user.PasswordHash` via `IPasswordHasher.Hash`. Does **not** currently revoke the user's existing
+  refresh tokens (see [Review.md](../Review.md)).
+- **Config:** `PasswordRecovery:ExpirationMinutes` (default 15 if absent) controls code lifetime — keep
+  in sync with the hardcoded "expires in 15 minutes" wording in `SmtpEmailService` (see
+  [Review.md](../Review.md)).
+- **Cleanup:** unlike `RefreshToken` and `PendingVersusMatch`, expired/used `PasswordRecoveryCode` rows
+  are not purged by `ExpiredRecordPurgeService` (see [Review.md](../Review.md)).
+
 ## Rate limiting
 
 `POST /api/auth` (login) and `POST /api/users` (registration) are unauthenticated and thus the prime targets
@@ -70,4 +98,4 @@ both additionally check that `User.GetUserId()` matches a player id named in the
 for solo; `dto.WinnerId` or `dto.LoserId` for versus, since either participant may act as the P2P host
 reporting the result), returning `Forbid()` otherwise. Apply the same "caller must be a named participant"
 check to any new endpoint that lets a player submit data on their own behalf. Note this still trusts a
-participant's report of *who won* a versus match — see [TODO.md](../TODO.md).
+participant's report of *who won* a versus match — see [TODO.md](../../TODO.md).
