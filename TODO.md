@@ -26,17 +26,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
   failure would mean total data loss. Plan and implement a backup strategy (e.g. scheduled
   `pg_dump` of the `pgdata` volume to an external/offsite location).
 
-## Architecture & code quality
-
-- [ ] **Split Controllers into smaller services** — controllers currently own all business
-  logic directly against `PinballPVPContext` (see [Architecture.md](.claude/Architecture.md)) —
-  validation, aggregation, and persistence are all concentrated in single action methods. Review
-  each controller and extract cohesive units of work into injectable services to follow S.O.L.I.D.
-  and keep controllers thin, maintainable, and scalable. `UsersController`, `PlayerRecordsController`,
-  `AuthController`, and `LeaderboardsController` are done (`Services/Users/`, `Services/PlayerRecords/`,
-  `Services/Auth/`, `Services/Leaderboards/`, see [services.md](.claude/Contexts/services.md) for the
-  pattern); still to do: `SoloMatchesController`, `VersusMatchesController`.
-
 ## Performance
 
 - [ ] **Limit leaderboard queries to the top 100** — `LeaderboardService`'s aggregation
@@ -49,9 +38,9 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Reliability
 
-- [ ] **Make match-creation win/loss updates idempotent** — `SoloMatchesController` and
-  `VersusMatchesController` increment `PlayerRecord`/`AllTimeBestRecord` win/loss counters
-  directly as a side effect of `CreateMatch` (see [entities.md](.claude/Contexts/entities.md)).
+- [ ] **Make match-creation win/loss updates idempotent** — `SoloMatchService` and
+  `VersusMatchService` increment `PlayerRecord`/`AllTimeBestRecord` win/loss counters
+  directly as a side effect of `CreateMatchAsync` (see [entities.md](.claude/Contexts/entities.md)).
   A retried request (client timeout, dropped connection, reconnect resubmitting the same result)
   could double-count a win or loss. Review for idempotency — e.g. a client-supplied idempotency
   key, or detecting/deduplicating near-identical recent submissions.

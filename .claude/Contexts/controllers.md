@@ -13,13 +13,15 @@
   state (e.g. `PlayerRecord` win/loss counts and highscores), `SaveChangesAsync`, and return
   `CreatedAtAction(nameof(Get...), ..., Dto.FromEntity(entity))`.
 
-**Service layer migration:** `UsersController`, `PlayerRecordsController`, `AuthController`, and
-`LeaderboardsController` no longer talk to `PinballPVPContext` directly — they inject `IUserService` /
-`IPlayerRecordService` / `IAuthService` / `ILeaderboardService` (`Services/Users/`, `Services/PlayerRecords/`,
-`Services/Auth/`, `Services/Leaderboards/`) and switch on the `Result.Error`/error-enum values (or `null`
-for not-found reads) returned by the service to pick the response. See [services.md](services.md) for the
-pattern; the bullets above and the "Leaderboards" section below still describe the *logic* (now living in
-the service), just not where it physically sits for these controllers.
+**Service layer migration:** all six controllers (`UsersController`, `PlayerRecordsController`,
+`AuthController`, `LeaderboardsController`, `SoloMatchesController`, `VersusMatchesController`) no longer
+talk to `PinballPVPContext` directly — they inject `IUserService` / `IPlayerRecordService` / `IAuthService`
+/ `ILeaderboardService` / `ISoloMatchService` / `IVersusMatchService` (`Services/Users/`,
+`Services/PlayerRecords/`, `Services/Auth/`, `Services/Leaderboards/`, `Services/SoloMatches/`,
+`Services/VersusMatches/`) and switch on the `Result.Error`/error-enum values (or `null` for not-found
+reads) returned by the service to pick the response. See [services.md](services.md) for the pattern; the
+bullets above and the "Leaderboards" and "Versus match dual-confirmation flow" sections below still describe
+the *logic* (now living in the services), just not where it physically sits for these controllers.
 
 ## Period filtering
 
@@ -106,9 +108,12 @@ Core translates the nested-object projection into a join, no `.Include()` needed
 Returns `404` if no `YearlyLeaderboardEntry` rows exist for that year (rollover hasn't processed it yet,
 or the year is out of range). See [persistence.md](persistence.md) for how entries are populated.
 
-## Versus match dual-confirmation flow (`VersusMatchesController.CreateMatch`)
+## Versus match dual-confirmation flow (`VersusMatchService.CreateMatchAsync`)
 
-`POST /api/v1/versusmatches` enforces dual confirmation to prevent one-sided result forgery:
+`POST /api/v1/versusmatches` enforces dual confirmation to prevent one-sided result forgery. The
+`dto.WinnerId == dto.LoserId` and `User.GetUserId()` participant checks happen in
+`VersusMatchesController` before calling the service (see [services.md](services.md)); everything below
+is `VersusMatchService.CreateMatchAsync(reporterId, dto)`:
 
 1. **First reporter** (either participant): a `PendingVersusMatch` row is created and `202 Accepted`
    returned. The row expires after `PendingVersusMatch.ConfirmationWindowMinutes` (5 min) to handle

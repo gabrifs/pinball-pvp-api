@@ -17,7 +17,9 @@ using PinballPVP.Api.Services.Maintenance;
 using PinballPVP.Api.Services.Password;
 using PinballPVP.Api.Services.PlayerRecords;
 using PinballPVP.Api.Services.RateLimiting;
+using PinballPVP.Api.Services.SoloMatches;
 using PinballPVP.Api.Services.Users;
+using PinballPVP.Api.Services.VersusMatches;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -75,6 +77,8 @@ builder.Services.AddScoped<IYearRolloverService, YearRolloverService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPlayerRecordService, PlayerRecordService>();
 builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
+builder.Services.AddScoped<ISoloMatchService, SoloMatchService>();
+builder.Services.AddScoped<IVersusMatchService, VersusMatchService>();
 builder.Services.AddHostedService<ExpiredRecordPurgeService>();
 
 // JWT Authentication

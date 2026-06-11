@@ -2,21 +2,17 @@ using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Extensions;
-using PinballPVP.Api.Models;
+using PinballPVP.Api.Services.SoloMatches;
 
 namespace PinballPVP.Api.Controllers;
 
 [ApiVersion(1)]
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
-public class SoloMatchesController(PinballPVPContext context) : ControllerBase
+public class SoloMatchesController(ISoloMatchService soloMatchService) : ControllerBase
 {
-    private readonly PinballPVPContext _context = context;
-
     [HttpGet]
     public async Task<ActionResult<PagedResult<SoloMatchResponseDto>>> GetMatches(
         string? period,
@@ -26,29 +22,14 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
         if (!period.IsValidPeriod())
             return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
 
-        var result = await _context.SoloMatches
-            .ApplyPeriodFilter(period)
-            .AsNoTracking()
-            .OrderByDescending(m => m.PlayedAt)
-            .Select(SoloMatchResponseDto.Projection)
-            .ToPagedResultAsync(page, pageSize);
-
-        return Ok(result);
+        return Ok(await soloMatchService.GetMatchesAsync(period, page, pageSize));
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<SoloMatchResponseDto>> GetMatch(int id)
     {
-        var match = await _context.SoloMatches
-            .AsNoTracking()
-            .Where(m => m.Id == id)
-            .Select(SoloMatchResponseDto.Projection)
-            .FirstOrDefaultAsync();
-
-        if (match == null)
-            return NotFound();
-
-        return Ok(match);
+        var match = await soloMatchService.GetMatchAsync(id);
+        return match is null ? NotFound() : Ok(match);
     }
 
     [HttpGet("user/{userId}")]
@@ -58,22 +39,11 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
         [Range(1, int.MaxValue)] int page = 1,
         [Range(1, 100)] int pageSize = 20)
     {
-        var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
-        if (!userExists)
-            return NotFound();
-
         if (!period.IsValidPeriod())
             return BadRequest($"Invalid period: {period} (valid values: week, month, year)");
 
-        var result = await _context.SoloMatches
-            .Where(m => m.UserId == userId)
-            .ApplyPeriodFilter(period)
-            .AsNoTracking()
-            .OrderByDescending(m => m.PlayedAt)
-            .Select(SoloMatchResponseDto.Projection)
-            .ToPagedResultAsync(page, pageSize);
-
-        return Ok(result);
+        var result = await soloMatchService.GetUserMatchesAsync(userId, period, page, pageSize);
+        return result is null ? NotFound() : Ok(result);
     }
 
     [Authorize]
@@ -83,36 +53,13 @@ public class SoloMatchesController(PinballPVPContext context) : ControllerBase
         if (User.GetUserId() != dto.UserId)
             return Forbid();
 
-        var user = await _context.Users
-            .Include(u => u.PlayerRecord)
-            .Include(u => u.AllTimeBestRecord)
-            .FirstOrDefaultAsync(u => u.Id == dto.UserId);
+        var result = await soloMatchService.CreateMatchAsync(dto);
 
-        if (user == null)
-            return BadRequest("User doesn't exist");
-
-        var match = new SoloMatch
+        return result.Error switch
         {
-            UserId = dto.UserId,
-            User = user,
-            FinalScore = dto.FinalScore,
-            RoundsWon = dto.RoundsWon,
-            HasWon = dto.HasWon,
-            PlayedAt = DateTime.UtcNow
+            CreateSoloMatchError.None => CreatedAtAction(nameof(GetMatch), new { id = result.Match!.Id }, result.Match),
+            CreateSoloMatchError.UserNotFound => BadRequest("User doesn't exist"),
+            _ => BadRequest()
         };
-
-        if (match.HasWon)
-            user.PlayerRecord.SoloWins++;
-        else
-            user.PlayerRecord.SoloLosses++;
-
-        user.PlayerRecord.SoloHighscore = Math.Max(user.PlayerRecord.SoloHighscore, dto.FinalScore);
-
-        user.AllTimeBestRecord.UpdateFromSolo(user.PlayerRecord, match.PlayedAt.Year);
-
-        _context.SoloMatches.Add(match);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetMatch), new { id = match.Id }, SoloMatchResponseDto.FromEntity(match));
     }
 }

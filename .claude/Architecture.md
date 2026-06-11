@@ -3,15 +3,15 @@
 ## Layering
 
 Requests flow `Controller -> Service -> PinballPVPContext (EF Core DbContext) -> PostgreSQL`. Business logic
-(validation, persistence, aggregate updates) is being progressively extracted from controllers into
-injectable per-feature services under `Services/<Feature>/` — see
-[Contexts/services.md](Contexts/services.md) for the structure and conventions, and the "Split Controllers
-into smaller services" item in [TODO.md](../TODO.md) for migration status. `UsersController` /
-`Services/Users/` is the first controller migrated; controllers not yet migrated still talk to the
-`DbContext` directly. There is no separate repository layer — services (or controllers, pre-migration) talk
-to the `DbContext` directly. Cross-cutting concerns that don't belong in a controller (password hashing, JWT
-issuing) are also extracted into `Services/` and injected via DI. DTOs live in `Dtos/` and are the boundary
-between EF entities (`Models/`) and the wire format; entities are never returned directly from endpoints.
+(validation, persistence, aggregate updates) lives in injectable per-feature services under
+`Services/<Feature>/` — see [Contexts/services.md](Contexts/services.md) for the structure and
+conventions. All six controllers (`UsersController`, `PlayerRecordsController`, `AuthController`,
+`LeaderboardsController`, `SoloMatchesController`, `VersusMatchesController`) have been migrated to this
+pattern; `UsersController` / `Services/Users/` was the first and remains the template for new services.
+There is no separate repository layer — services talk to the `DbContext` directly. Cross-cutting concerns
+that don't belong in a controller (password hashing, JWT issuing) are also extracted into `Services/` and
+injected via DI. DTOs live in `Dtos/` and are the boundary between EF entities (`Models/`) and the wire
+format; entities are never returned directly from endpoints.
 
 ## Feature-specific conventions (`.claude/Contexts/`)
 

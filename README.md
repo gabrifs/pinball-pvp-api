@@ -52,8 +52,8 @@ PinballPVP.Api/
 │                  #   Player Records, Leaderboards); includes shared PagedResult<T> wrapper
 ├── Data/          # PinballPVPContext (EF Core DbContext) and entity configuration
 ├── Services/      # Application services (authentication, user accounts, player records, leaderboards,
-│                  #   password hashing, JWT issuing, refresh tokens, email delivery, global exception
-│                  #   handler, health check, background maintenance)
+│                  #   solo/versus matches, password hashing, JWT issuing, refresh tokens, email delivery,
+│                  #   global exception handler, health check, background maintenance)
 ├── Middleware/    # Request pipeline middleware (CorrelationIdMiddleware)
 ├── Extensions/    # Helper extensions (JWT claims, period filtering, paginated queries)
 └── Migrations/    # EF Core database migrations

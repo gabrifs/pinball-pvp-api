@@ -43,6 +43,29 @@ orchestration logic, not persistence-only, but it still belongs in the service p
   `[Range(...)]` attribute validation on `page`/`pageSize` — it's pure request-shape validation with no
   DB dependency, not business logic.
 
+`SoloMatchesController` / `Services/SoloMatches/` (fifth) and `VersusMatchesController` /
+`Services/VersusMatches/` (sixth) complete the controller migration:
+
+- Both `GetUserMatchesAsync(userId, ...)` methods return `null` when the user doesn't exist (same
+  not-found convention as above), mapped to `NotFound()`. As with `LeaderboardsController.GetPlayerRank`,
+  the controller's `period.IsValidPeriod()` guard clause now runs *before* the service call, so an
+  invalid period on a non-existent user yields `400` rather than the pre-extraction `404` — a
+  behaviour-order detail nobody depends on, traded for keeping the guard-clause convention consistent.
+- `SoloMatchService.CreateMatchAsync` is a small `CreateSoloMatchResult`/`CreateSoloMatchError`
+  (`None`/`UserNotFound`) pair, following the standard write-operation shape.
+- `VersusMatchService.CreateMatchAsync(reporterId, dto)` is the most complex write operation in the
+  codebase — the dual-confirmation flow described in [controllers.md](controllers.md). Its
+  `CreateVersusMatchResult`/`CreateVersusMatchError` pair extends the usual shape with **two non-error
+  success outcomes**: `None` (match committed, `201 Created`, `Match` populated) and `Pending` (first
+  reporter, `202 Accepted`, no `Match`) — alongside `UsersNotFound`, `AlreadyPending`,
+  `ResultsMismatch`, and `PendingConflict` (the unique-index race), each mapped to its own `400`/`409`
+  response by the controller.
+- Two checks stay in `VersusMatchesController` rather than the service: `dto.WinnerId == dto.LoserId`
+  (pure cross-field DTO validation, no DB dependency — same rationale as period validation) and the
+  `User.GetUserId()` participant check that returns `Forbid()` (needs the `ClaimsPrincipal`, which
+  services don't take a dependency on). The resolved `reporterId` is passed into
+  `CreateMatchAsync` as a plain `int`.
+
 ## Structure
 
 Each migrated feature gets its own folder under `Services/<Feature>/` (plural, matching the controller
