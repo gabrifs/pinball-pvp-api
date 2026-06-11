@@ -8,6 +8,22 @@ Business logic is being progressively extracted from controllers into injectable
 read-only service: a single `GetPlayerRecordAsync` method returning `PlayerRecordResponseDto?`
 (`null` for not-found), with no `Result` records since it has no write operations.
 
+`AuthController` / `IAuthService` (`AuthService`, in the existing `Services/Auth/` folder alongside
+`IJwtTokenService`/`IRefreshTokenService`) is the third. It shows two variations on the pattern:
+
+- Methods that return a DTO on success (`LoginAsync`, `RefreshAsync`) use the usual
+  `record Result(TError Error, TDto? Value)` shape (`LoginResult`, `RefreshResult`).
+- Methods with no payload (`LogoutAsync`, `ResetPasswordAsync`) skip the wrapper record entirely and
+  just return the error enum directly (`Task<LogoutError>`, `Task<ResetPasswordError>`) — a `Result`
+  record whose `Value` is always `null` adds nothing.
+- `ForgotPasswordAsync` returns `Task` (no result at all): the controller always responds `200 OK`
+  regardless of whether the user exists, so there's no error for the service to communicate.
+
+`AuthService` takes over the `PinballPVPContext.Database.CreateExecutionStrategy()` /
+`BeginTransactionAsync` pattern from `Login`/`Refresh` (see [auth.md](auth.md)) — this is
+orchestration logic, not persistence-only, but it still belongs in the service per S.O.L.I.D.
+(the controller shouldn't know about transactions).
+
 ## Structure
 
 Each migrated feature gets its own folder under `Services/<Feature>/` (plural, matching the controller

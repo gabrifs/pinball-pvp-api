@@ -9,8 +9,9 @@ from the `Jwt` config section (`Key`, `Issuer`, `Audience`, `ExpirationMinutes`)
   `ClaimTypes.NameIdentifier` XML URI). Always read the user id via the `User.GetUserId()` extension
   (`Extensions/ClaimsPrincipalExtensions.cs`), which looks up `JwtRegisteredClaimNames.Sub` — don't add new
   lookups against `ClaimTypes.NameIdentifier`, they won't match.
-- `AuthController.Login` validates credentials via `IPasswordHasher` (`Services/Password Hashing/`,
-  Argon2-backed) and issues tokens via `IJwtTokenService` (`Services/Auth/`). Both are registered as scoped
+- `AuthService.LoginAsync` (`Services/Auth/`, injected into `AuthController` as `IAuthService` — see
+  [services.md](services.md)) validates credentials via `IPasswordHasher` (`Services/Password Hashing/`,
+  Argon2-backed) and issues tokens via `IJwtTokenService` (`Services/Auth/`). All are registered as scoped
   services in `Program.cs` and injected through primary constructors — follow that pattern for new services.
 - `IPasswordHasher.Verify(hash, password)` takes the **stored hash first, then the plaintext password** —
   matching the underlying `Argon2.Verify(encoded, password)` signature. Getting this order backwards silently
@@ -29,11 +30,12 @@ that let clients obtain new access tokens without re-entering credentials. Key d
 - **Revocation / logout:** `POST /api/auth/logout` (`[Authorize]`) accepts the client's refresh token,
   validates it belongs to the authenticated user, and revokes it. It is idempotent — submitting an already-
   revoked/expired token returns `204` rather than an error.
-- **Single-session policy:** `Login` calls `RevokeAllForUserAsync` before issuing the new token (wrapped in
-  an explicit transaction), so only one active refresh token exists per user at any time. This naturally
-  cleans up dangling tokens from crashed/disconnected sessions — the player just logs in again.
+- **Single-session policy:** `AuthService.LoginAsync` calls `RevokeAllForUserAsync` before issuing the new
+  token (wrapped in an explicit transaction), so only one active refresh token exists per user at any time.
+  This naturally cleans up dangling tokens from crashed/disconnected sessions — the player just logs in
+  again.
 - **`IRefreshTokenService`** (`Services/Auth/`) handles generation, validation, revocation, and bulk
-  revocation; it's a scoped service injected into `AuthController`. The service takes the raw token from
+  revocation; it's a scoped service injected into `AuthService`. The service takes the raw token from
   the client, hashes it, and looks it up — callers never deal with the hash directly.
 - **Cascade delete:** deleting a `User` cascades to their `RefreshToken` rows (configured in
   `PinballPVPContext.OnModelCreating`).
@@ -57,20 +59,22 @@ both rate-limited via `RateLimiterPolicyNames.AuthEndpoints` like `Login`/`Refre
 - **`PasswordRecoveryCode`** (`Models/`) — `UserId` (FK to `User`, `DeleteBehavior.Cascade`), `CodeHash`
   (SHA-256 hash of the raw code; the raw code itself is never persisted), `ExpiresAt`, `Used`. Indexed on
   `(UserId, Used)`.
-- **`ForgotPassword`** — looks up the user by `dto.UserId`. If not found, returns `Ok()` immediately
-  without revealing whether the account exists. Otherwise:
+- **`AuthService.ForgotPasswordAsync`** — looks up the user by `dto.UserId`. If not found, returns
+  immediately (the controller always responds `200 OK`) without revealing whether the account exists.
+  Otherwise:
   1. Invalidates any still-active codes for that user via `ExecuteUpdateAsync` (sets `Used = true`), so
      only the most recently issued code is ever valid.
   2. Generates an 8-character uppercase hex code (`RandomNumberGenerator.GetBytes(4)`), hashes it with
-     SHA-256 (`AuthController.HashCode`, mirroring `RefreshTokenService`'s hashing pattern), and stores it
+     SHA-256 (`AuthService.HashCode`, mirroring `RefreshTokenService`'s hashing pattern), and stores it
      with `ExpiresAt = UtcNow + PasswordRecovery:ExpirationMinutes` (config key, default 15).
   3. Sends the **raw** code and the expiration window to the user's email via
      `IEmailService.SendPasswordRecoveryAsync` (see "Email service" above).
-- **`ResetPassword`** — hashes `dto.RecoveryCode` and looks for a matching, unused, unexpired
-  `PasswordRecoveryCode` for `dto.UserId`. If found, marks it `Used = true`, overwrites
+- **`AuthService.ResetPasswordAsync`** — hashes `dto.RecoveryCode` and looks for a matching, unused,
+  unexpired `PasswordRecoveryCode` for `dto.UserId`. If found, marks it `Used = true`, overwrites
   `user.PasswordHash` via `IPasswordHasher.Hash`, and revokes all of the user's refresh tokens via
-  `IRefreshTokenService.RevokeAllForUserAsync` — mirroring the single-session policy enforced on `Login`,
-  since a password reset is often prompted by a compromised credential.
+  `IRefreshTokenService.RevokeAllForUserAsync` — mirroring the single-session policy enforced on
+  `LoginAsync`, since a password reset is often prompted by a compromised credential. Returns
+  `ResetPasswordError.InvalidOrExpiredCode` (mapped to `400 Bad Request`) if no matching code is found.
 - **Config:** `PasswordRecovery:ExpirationMinutes` (default 15 if absent) controls code lifetime and is
   passed through to `SendPasswordRecoveryAsync` so the email text always matches the configured window.
 - **Cleanup:** `ExpiredRecordPurgeService` bulk-deletes `PasswordRecoveryCode` rows that are `Used` or
