@@ -4,6 +4,10 @@ Business logic is being progressively extracted from controllers into injectable
 (see "Split Controllers into smaller services" in [TODO.md](../../TODO.md)). `UsersController` /
 `Services/Users/` is the first controller migrated — use it as the template for the next one.
 
+`PlayerRecordsController` / `Services/PlayerRecords/` is the second — a minimal example of a
+read-only service: a single `GetPlayerRecordAsync` method returning `PlayerRecordResponseDto?`
+(`null` for not-found), with no `Result` records since it has no write operations.
+
 ## Structure
 
 Each migrated feature gets its own folder under `Services/<Feature>/` (plural, matching the controller

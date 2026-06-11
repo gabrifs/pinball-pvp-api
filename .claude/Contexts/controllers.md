@@ -13,10 +13,11 @@
   state (e.g. `PlayerRecord` win/loss counts and highscores), `SaveChangesAsync`, and return
   `CreatedAtAction(nameof(Get...), ..., Dto.FromEntity(entity))`.
 
-**Service layer migration:** `UsersController` no longer talks to `PinballPVPContext` directly — it injects
-`IUserService` (`Services/Users/`) and switches on the `Result.Error` enum it returns to pick the response.
-See [services.md](services.md) for the pattern; the bullets above still describe the *logic* (now living in
-the service), just not where it physically sits for this controller.
+**Service layer migration:** `UsersController` and `PlayerRecordsController` no longer talk to
+`PinballPVPContext` directly — they inject `IUserService` / `IPlayerRecordService` (`Services/Users/`,
+`Services/PlayerRecords/`). `UsersController` switches on the `Result.Error` enum returned by write
+operations to pick the response. See [services.md](services.md) for the pattern; the bullets above still
+describe the *logic* (now living in the service), just not where it physically sits for these controllers.
 
 ## Period filtering
 

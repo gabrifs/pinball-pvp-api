@@ -32,10 +32,10 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
   logic directly against `PinballPVPContext` (see [Architecture.md](.claude/Architecture.md)) —
   validation, aggregation, and persistence are all concentrated in single action methods. Review
   each controller and extract cohesive units of work into injectable services to follow S.O.L.I.D.
-  and keep controllers thin, maintainable, and scalable. `UsersController` is done
-  (`Services/Users/`, see [services.md](.claude/Contexts/services.md) for the pattern); still to
-  do: `AuthController`, `PlayerRecordsController`, `SoloMatchesController`,
-  `VersusMatchesController`, `LeaderboardsController`.
+  and keep controllers thin, maintainable, and scalable. `UsersController` and
+  `PlayerRecordsController` are done (`Services/Users/`, `Services/PlayerRecords/`, see
+  [services.md](.claude/Contexts/services.md) for the pattern); still to do: `AuthController`,
+  `SoloMatchesController`, `VersusMatchesController`, `LeaderboardsController`.
 
 ## Performance
 

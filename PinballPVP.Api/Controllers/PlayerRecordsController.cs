@@ -1,26 +1,19 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
+using PinballPVP.Api.Services.PlayerRecords;
 
 namespace PinballPVP.Api.Controllers;
 
 [ApiVersion(1)]
 [ApiController]
 [Route("api/v{version:apiVersion}/users/playerrecords")]
-public class PlayerRecordsController(PinballPVPContext context) : ControllerBase
+public class PlayerRecordsController(IPlayerRecordService playerRecordService) : ControllerBase
 {
-    private readonly PinballPVPContext _context = context;
-
     [HttpGet("{id}")]
     public async Task<ActionResult<PlayerRecordResponseDto>> GetPlayerRecord(int id)
     {
-        var playerRecord = await _context.PlayerRecords
-            .AsNoTracking()
-            .Where(pr => pr.UserId == id)
-            .Select(PlayerRecordResponseDto.Projection)
-            .FirstOrDefaultAsync();
+        var playerRecord = await playerRecordService.GetPlayerRecordAsync(id);
 
         if (playerRecord == null)
             return NotFound();
