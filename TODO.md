@@ -33,13 +33,13 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
   validation, aggregation, and persistence are all concentrated in single action methods. Review
   each controller and extract cohesive units of work into injectable services to follow S.O.L.I.D.
   and keep controllers thin, maintainable, and scalable. `UsersController`, `PlayerRecordsController`,
-  and `AuthController` are done (`Services/Users/`, `Services/PlayerRecords/`, `Services/Auth/`, see
-  [services.md](.claude/Contexts/services.md) for the pattern); still to do: `SoloMatchesController`,
-  `VersusMatchesController`, `LeaderboardsController`.
+  `AuthController`, and `LeaderboardsController` are done (`Services/Users/`, `Services/PlayerRecords/`,
+  `Services/Auth/`, `Services/Leaderboards/`, see [services.md](.claude/Contexts/services.md) for the
+  pattern); still to do: `SoloMatchesController`, `VersusMatchesController`.
 
 ## Performance
 
-- [ ] **Limit leaderboard queries to the top 100** — `LeaderboardsController`'s aggregation
+- [ ] **Limit leaderboard queries to the top 100** — `LeaderboardService`'s aggregation
   helpers (`GetSoloStatsAsync`/`GetVersusStatsAsync`, see
   [controllers.md](.claude/Contexts/controllers.md)) currently load every player's stats for the
   selected period before sorting and paginating in memory. As the player base grows this becomes

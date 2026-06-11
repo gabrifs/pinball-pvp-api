@@ -13,12 +13,13 @@
   state (e.g. `PlayerRecord` win/loss counts and highscores), `SaveChangesAsync`, and return
   `CreatedAtAction(nameof(Get...), ..., Dto.FromEntity(entity))`.
 
-**Service layer migration:** `UsersController`, `PlayerRecordsController`, and `AuthController` no longer
-talk to `PinballPVPContext` directly — they inject `IUserService` / `IPlayerRecordService` / `IAuthService`
-(`Services/Users/`, `Services/PlayerRecords/`, `Services/Auth/`) and switch on the `Result.Error`/error-enum
-values returned by write operations to pick the response. See [services.md](services.md) for the pattern;
-the bullets above still describe the *logic* (now living in the service), just not where it physically sits
-for these controllers.
+**Service layer migration:** `UsersController`, `PlayerRecordsController`, `AuthController`, and
+`LeaderboardsController` no longer talk to `PinballPVPContext` directly — they inject `IUserService` /
+`IPlayerRecordService` / `IAuthService` / `ILeaderboardService` (`Services/Users/`, `Services/PlayerRecords/`,
+`Services/Auth/`, `Services/Leaderboards/`) and switch on the `Result.Error`/error-enum values (or `null`
+for not-found reads) returned by the service to pick the response. See [services.md](services.md) for the
+pattern; the bullets above and the "Leaderboards" section below still describe the *logic* (now living in
+the service), just not where it physically sits for these controllers.
 
 ## Period filtering
 
@@ -71,10 +72,11 @@ host (`PinballApiFactory`) sets this to `3` so integration tests don't need ten 
 so the period filter is applied correctly. Players with no matches in the selected window don't appear,
 which also guarantees `Wins + Losses > 0` — division-by-zero is structurally impossible.
 
-**Aggregation helpers:** `GetSoloStatsAsync(period)` and `GetVersusStatsAsync(period)` are private
-methods that perform the DB queries and return `List<SoloStats>` / `List<VersusStats>`. Both the
-paginated endpoints and the player-rank endpoint call these helpers — the paginated path then sorts and
-slices, the rank path sorts three ways per mode and locates the player by `FindIndex`.
+**Aggregation helpers** (all in `LeaderboardService`, see [services.md](services.md)):
+`GetSoloStatsAsync(period)` and `GetVersusStatsAsync(period)` are private methods that perform the DB
+queries and return `List<LeaderboardStats>` (one shared record for both match types). Both the paginated
+methods and `GetPlayerRankAsync` call these helpers — the paginated path then sorts and slices, the rank
+path sorts three ways per mode (via `ApplySort`) and locates the player by `FindIndex`.
 
 **Solo aggregation:** single `GroupBy(m => new { m.UserId, m.User.Nickname })` on `SoloMatches` with
 `Max(FinalScore)`, `Count(HasWon)`, `Count(!HasWon)`. Translated to SQL via EF Core.
@@ -87,8 +89,9 @@ highscores come from the respective winner/loser columns.
 sorted, then `Skip`/`Take` applied). Rank is `(page - 1) * pageSize + index + 1`.
 
 `WinRate` is `Math.Round(wins / (wins + losses) * 100, 2)` — computed in memory from fetched integers.
-Private helpers accept `Func<IEnumerable<Stats>, IOrderedEnumerable<Stats>>` so the six public
-endpoints are single-expression calls with their sort lambdas.
+The private `ApplySort(stats, LeaderboardSortBy)` helper switches on the `LeaderboardSortBy` enum
+(`Highscore`/`Wins`/`WinRate`) so the two paginated service methods and the rank computation share one
+sorting implementation.
 
 ## Yearly leaderboards and all-time bests
 

@@ -24,6 +24,25 @@ read-only service: a single `GetPlayerRecordAsync` method returning `PlayerRecor
 orchestration logic, not persistence-only, but it still belongs in the service per S.O.L.I.D.
 (the controller shouldn't know about transactions).
 
+`LeaderboardsController` / `Services/Leaderboards/` is the fourth — entirely read-only, like
+`PlayerRecordsController`, but with a richer interface:
+
+- The six paginated leaderboard endpoints collapse to two service methods,
+  `GetSoloLeaderboardAsync`/`GetVersusLeaderboardAsync`, parameterised by a `LeaderboardSortBy`
+  enum (`Highscore`/`Wins`/`WinRate`) instead of the `Func<IEnumerable<Stats>, IOrderedEnumerable<Stats>>`
+  sort lambdas the controller used to build inline. The enum is defined in `ILeaderboardService.cs`
+  alongside the interface, following the same "interface file owns its enums/result records" convention
+  as `LoginError`/`RefreshError` in `IAuthService.cs`.
+- The previously-separate private `SoloStats`/`VersusStats` records (identical shapes) were merged into
+  one `LeaderboardStats` record so a single private `ApplySort` helper — switching on `LeaderboardSortBy`
+  — can serve both leaderboard kinds and `GetPlayerRankAsync`'s rank computation.
+- `GetYearlyLeaderboardAsync(year)` and `GetPlayerRankAsync(userId, period)` return `null` for the
+  not-found cases (no entries for that year / no such user), which the controller maps to `NotFound()` —
+  same convention as `PlayerRecordsController`.
+- Period validation (`period.IsValidPeriod()`) stays in the controller as a guard clause, like the
+  `[Range(...)]` attribute validation on `page`/`pageSize` — it's pure request-shape validation with no
+  DB dependency, not business logic.
+
 ## Structure
 
 Each migrated feature gets its own folder under `Services/<Feature>/` (plural, matching the controller

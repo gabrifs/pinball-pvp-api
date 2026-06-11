@@ -12,6 +12,7 @@ using PinballPVP.Api.Services.Auth;
 using PinballPVP.Api.Services.Email;
 using PinballPVP.Api.Services.ExceptionHandling;
 using PinballPVP.Api.Services.Health;
+using PinballPVP.Api.Services.Leaderboards;
 using PinballPVP.Api.Services.Maintenance;
 using PinballPVP.Api.Services.Password;
 using PinballPVP.Api.Services.PlayerRecords;
@@ -73,6 +74,7 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IYearRolloverService, YearRolloverService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPlayerRecordService, PlayerRecordService>();
+builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddHostedService<ExpiredRecordPurgeService>();
 
 // JWT Authentication
