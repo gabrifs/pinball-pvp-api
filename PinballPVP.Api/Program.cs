@@ -15,6 +15,7 @@ using PinballPVP.Api.Services.Health;
 using PinballPVP.Api.Services.Maintenance;
 using PinballPVP.Api.Services.Password;
 using PinballPVP.Api.Services.RateLimiting;
+using PinballPVP.Api.Services.Users;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -68,6 +69,7 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IYearRolloverService, YearRolloverService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHostedService<ExpiredRecordPurgeService>();
 
 // JWT Authentication

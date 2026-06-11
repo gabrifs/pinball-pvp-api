@@ -13,6 +13,11 @@
   state (e.g. `PlayerRecord` win/loss counts and highscores), `SaveChangesAsync`, and return
   `CreatedAtAction(nameof(Get...), ..., Dto.FromEntity(entity))`.
 
+**Service layer migration:** `UsersController` no longer talks to `PinballPVPContext` directly — it injects
+`IUserService` (`Services/Users/`) and switches on the `Result.Error` enum it returns to pick the response.
+See [services.md](services.md) for the pattern; the bullets above still describe the *logic* (now living in
+the service), just not where it physically sits for this controller.
+
 ## Period filtering
 
 `SoloMatchesController` and `VersusMatchesController` both support an optional `?period=week|month|year`

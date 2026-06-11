@@ -2,11 +2,16 @@
 
 ## Layering
 
-Requests flow `Controller -> PinballPVPContext (EF Core DbContext) -> PostgreSQL`. There is no separate
-repository layer — controllers talk to the `DbContext` directly. Cross-cutting concerns that don't belong in
-a controller (password hashing, JWT issuing) are extracted into `Services/` and injected via DI. DTOs live in
-`Dtos/` and are the boundary between EF entities (`Models/`) and the wire format; entities are never returned
-directly from endpoints.
+Requests flow `Controller -> Service -> PinballPVPContext (EF Core DbContext) -> PostgreSQL`. Business logic
+(validation, persistence, aggregate updates) is being progressively extracted from controllers into
+injectable per-feature services under `Services/<Feature>/` — see
+[Contexts/services.md](Contexts/services.md) for the structure and conventions, and the "Split Controllers
+into smaller services" item in [TODO.md](../TODO.md) for migration status. `UsersController` /
+`Services/Users/` is the first controller migrated; controllers not yet migrated still talk to the
+`DbContext` directly. There is no separate repository layer — services (or controllers, pre-migration) talk
+to the `DbContext` directly. Cross-cutting concerns that don't belong in a controller (password hashing, JWT
+issuing) are also extracted into `Services/` and injected via DI. DTOs live in `Dtos/` and are the boundary
+between EF entities (`Models/`) and the wire format; entities are never returned directly from endpoints.
 
 ## Feature-specific conventions (`.claude/Contexts/`)
 
@@ -15,6 +20,9 @@ under `.claude/Contexts/` so this file stays manageable as the project grows. Th
 read the relevant one before working in that area, and add new ones here following the same pattern as the
 codebase gains features:
 
+- [Contexts/services.md](Contexts/services.md) — the per-feature service layer structure (interface +
+  implementation) and the `Result`-record pattern used for write operations, with `Services/Users/` as
+  the template for migrating the remaining controllers.
 - [Contexts/entities.md](Contexts/entities.md) — `Models/` entity relationships and how
   `PlayerRecord` aggregates are maintained as a side effect of match creation.
 - [Contexts/dtos.md](Contexts/dtos.md) — the `Projection`/`FromEntity` convention every response
