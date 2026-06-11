@@ -3,36 +3,25 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
-using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Extensions;
-using PinballPVP.Api.Models;
-using PinballPVP.Api.Services.Password;
 using PinballPVP.Api.Services.RateLimiting;
+using PinballPVP.Api.Services.Users;
 
 namespace PinballPVP.Api.Controllers;
 
 [ApiVersion(1)]
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
-public class UsersController(PinballPVPContext context, IPasswordHasher passwordHasher) : ControllerBase
+public class UsersController(IUserService userService) : ControllerBase
 {
-    private readonly PinballPVPContext _context = context;
-    private readonly IPasswordHasher _passwordHasher = passwordHasher;
-
     // GET /api/users
     [HttpGet]
     public async Task<ActionResult<PagedResult<UserResponseDto>>> GetUsers(
         [Range(1, int.MaxValue)] int page = 1,
         [Range(1, 100)] int pageSize = 20)
     {
-        var result = await _context.Users
-            .AsNoTracking()
-            .OrderBy(u => u.Id)
-            .Select(UserResponseDto.Projection)
-            .ToPagedResultAsync(page, pageSize);
-
+        var result = await userService.GetUsersAsync(page, pageSize);
         return Ok(result);
     }
 
@@ -40,13 +29,9 @@ public class UsersController(PinballPVPContext context, IPasswordHasher password
     [HttpGet("{id}")]
     public async Task<ActionResult<UserResponseDto>> GetUser(int id)
     {
-        var user = await _context.Users
-            .AsNoTracking()
-            .Where(user => user.Id == id)
-            .Select(UserResponseDto.Projection)
-            .FirstOrDefaultAsync();
+        var user = await userService.GetUserAsync(id);
 
-        if(user == null)
+        if (user == null)
             return NotFound();
 
         return Ok(user);
@@ -57,56 +42,16 @@ public class UsersController(PinballPVPContext context, IPasswordHasher password
     [HttpPost]
     public async Task<ActionResult> CreateUser(CreateUserDto dto)
     {
-        if (await _context.Users.AnyAsync(user => user.Username == dto.Username))
-        {
-            return BadRequest("Username already in use");
-        }
+        var result = await userService.CreateUserAsync(dto);
 
-        if(await _context.Users.AnyAsync(user => user.Nickname == dto.Nickname))
+        return result.Error switch
         {
-            return BadRequest("Nickname already in use");
-        }
-
-        if(await _context.Users.AnyAsync(user => user.Email == dto.Email))
-        {
-            return BadRequest("Email already in use");
-        }
-
-        var user = new User
-        {
-            Username = dto.Username,
-            Nickname = dto.Nickname,
-            Email = dto.Email,
-            PasswordHash =  _passwordHasher.Hash(dto.Password),
-
-            PlayerRecord = new PlayerRecord(),
-            AllTimeBestRecord = new AllTimeBestRecord()
+            CreateUserError.None             => CreatedAtAction(nameof(GetUser), new { id = result.User!.Id }, result.User),
+            CreateUserError.UsernameInUse    => BadRequest("Username already in use"),
+            CreateUserError.NicknameInUse    => BadRequest("Nickname already in use"),
+            CreateUserError.EmailInUse       => BadRequest("Email already in use"),
+            _                                 => BadRequest("A user with these details already exists")
         };
-
-        _context.Users.Add(user);
-
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex)
-            when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" } pgEx)
-        {
-            return pgEx.ConstraintName switch
-            {
-                "ix_users_username" => BadRequest("Username already in use"),
-                "ix_users_nickname" => BadRequest("Nickname already in use"),
-                "ix_users_email"    => BadRequest("Email already in use"),
-                _                   => BadRequest("A user with these details already exists")
-            };
-        }
-
-        return CreatedAtAction
-        (
-            nameof(GetUser),
-            new { id = user.Id },
-            UserResponseDto.FromEntity(user)
-        );
     }
 
     // PATCH /api/users/{id}/nickname
@@ -117,25 +62,13 @@ public class UsersController(PinballPVPContext context, IPasswordHasher password
         if (User.GetUserId() != id)
             return Forbid();
 
-        var user = await _context.Users.FindAsync(id);
-        if (user == null)
-            return NotFound();
+        var result = await userService.UpdateNicknameAsync(id, dto);
 
-        if (await _context.Users.AnyAsync(u => u.Nickname == dto.Nickname && u.Id != id))
-            return BadRequest("Nickname already in use");
-
-        user.Nickname = dto.Nickname;
-
-        try
+        return result.Error switch
         {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex)
-            when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505", ConstraintName: "ix_users_nickname" })
-        {
-            return BadRequest("Nickname already in use");
-        }
-
-        return Ok(UserResponseDto.FromEntity(user));
+            UpdateNicknameError.None          => Ok(result.User),
+            UpdateNicknameError.UserNotFound  => NotFound(),
+            _                                  => BadRequest("Nickname already in use")
+        };
     }
 }

@@ -12,9 +12,14 @@ using PinballPVP.Api.Services.Auth;
 using PinballPVP.Api.Services.Email;
 using PinballPVP.Api.Services.ExceptionHandling;
 using PinballPVP.Api.Services.Health;
+using PinballPVP.Api.Services.Leaderboards;
 using PinballPVP.Api.Services.Maintenance;
 using PinballPVP.Api.Services.Password;
+using PinballPVP.Api.Services.PlayerRecords;
 using PinballPVP.Api.Services.RateLimiting;
+using PinballPVP.Api.Services.SoloMatches;
+using PinballPVP.Api.Services.Users;
+using PinballPVP.Api.Services.VersusMatches;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,8 +71,14 @@ builder.Services.AddHealthChecks()
 builder.Services.AddScoped<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IYearRolloverService, YearRolloverService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPlayerRecordService, PlayerRecordService>();
+builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
+builder.Services.AddScoped<ISoloMatchService, SoloMatchService>();
+builder.Services.AddScoped<IVersusMatchService, VersusMatchService>();
 builder.Services.AddHostedService<ExpiredRecordPurgeService>();
 
 // JWT Authentication
