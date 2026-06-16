@@ -60,6 +60,15 @@ orchestration logic, not persistence-only, but it still belongs in the service p
   reporter, `202 Accepted`, no `Match`) — alongside `UsersNotFound`, `AlreadyPending`,
   `ResultsMismatch`, and `PendingConflict` (the unique-index race), each mapped to its own `400`/`409`
   response by the controller.
+- Both `CreateMatchAsync` implementations deduplicate retried submissions within a 60-second window
+  (`DeduplicationWindowSeconds = 60`). Before any state mutation, each service queries for an existing
+  match with an identical payload (same `UserId`/`FinalScore`/`RoundsWon`/`HasWon` for solo; same six
+  score fields for versus) created in the last 60 seconds — if found, it returns that match without
+  creating a new one or touching `PlayerRecord`. For versus, the dedup sits in the second-reporter
+  confirmation path and handles the realistic retry scenario where the confirmed response was lost in
+  transit: the other player (now acting as second reporter for the re-submitted pending) finds the
+  already-committed match and returns it cleanly. **Tests must use distinct payloads when submitting
+  multiple legitimate matches in a short loop, to avoid being caught by the dedup check.**
 - Two checks stay in `VersusMatchesController` rather than the service: `dto.WinnerId == dto.LoserId`
   (pure cross-field DTO validation, no DB dependency — same rationale as period validation) and the
   `User.GetUserId()` participant check that returns `Forbid()` (needs the `ClaimsPrincipal`, which

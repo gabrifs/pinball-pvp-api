@@ -124,6 +124,38 @@ public class VersusMatchesTests(PinballApiFactory factory) : IntegrationTestBase
     }
 
     [Fact]
+    public async Task CreateMatch_BothPlayersRetryAfterLostResponse_Returns201WithSameMatchAndNoDoubleCounting()
+    {
+        var (aliceId, aliceToken, _) = await RegisterAndLoginAsync();
+        var (bobId, bobToken, _)     = await RegisterAndLoginAsync();
+        var dto = BuildDto(aliceId, bobId);
+
+        // Normal flow: Alice first, Bob confirms
+        Authorize(aliceToken);
+        await Client.PostAsJsonAsync("/api/v1/versusmatches", dto);
+        Authorize(bobToken);
+        var committed = await Client.PostAsJsonAsync("/api/v1/versusmatches", dto);
+        Assert.Equal(HttpStatusCode.Created, committed.StatusCode);
+
+        // Bob lost the 201 response and retries — becomes first reporter for a new pending
+        var bobRetry = await Client.PostAsJsonAsync("/api/v1/versusmatches", dto);
+        Assert.Equal(HttpStatusCode.Accepted, bobRetry.StatusCode);
+
+        // Alice also retries — acts as second reporter; dedup check returns the committed match
+        Authorize(aliceToken);
+        var aliceRetry = await Client.PostAsJsonAsync("/api/v1/versusmatches", dto);
+        Assert.Equal(HttpStatusCode.Created, aliceRetry.StatusCode);
+
+        var committedMatch  = await committed.Content.ReadFromJsonAsync<VersusMatchResponseDto>();
+        var aliceRetryMatch = await aliceRetry.Content.ReadFromJsonAsync<VersusMatchResponseDto>();
+        Assert.Equal(committedMatch!.Id, aliceRetryMatch!.Id);
+
+        var aliceRecord = await Client.GetFromJsonAsync<PlayerRecordResponseDto>(
+            $"/api/v1/users/playerrecords/{aliceId}");
+        Assert.Equal(1, aliceRecord!.VersusWins);
+    }
+
+    [Fact]
     public async Task CreateMatch_SameReporterSubmitsTwice_Returns400()
     {
         var (aliceId, aliceToken, _) = await RegisterAndLoginAsync();

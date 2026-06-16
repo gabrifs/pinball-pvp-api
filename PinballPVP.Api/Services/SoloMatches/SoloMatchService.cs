@@ -8,6 +8,9 @@ namespace PinballPVP.Api.Services.SoloMatches;
 
 public class SoloMatchService(PinballPVPContext context) : ISoloMatchService
 {
+    // A retried request with identical payload within this window is treated as the same match — the
+    // original response was lost in transit. Prevents double-counting wins/losses on client retries.
+    private const int DeduplicationWindowSeconds = 60;
     public async Task<PagedResult<SoloMatchResponseDto>> GetMatchesAsync(
         string? period, int page, int pageSize, CancellationToken ct = default)
     {
@@ -52,6 +55,20 @@ public class SoloMatchService(PinballPVPContext context) : ISoloMatchService
 
         if (user == null)
             return CreateSoloMatchResult.Failure(CreateSoloMatchError.UserNotFound);
+
+        var cutoff = DateTime.UtcNow.AddSeconds(-DeduplicationWindowSeconds);
+        var existing = await context.SoloMatches
+            .AsNoTracking()
+            .Where(m => m.UserId == dto.UserId
+                     && m.FinalScore == dto.FinalScore
+                     && m.RoundsWon == dto.RoundsWon
+                     && m.HasWon == dto.HasWon
+                     && m.PlayedAt > cutoff)
+            .Select(SoloMatchResponseDto.Projection)
+            .FirstOrDefaultAsync(ct);
+
+        if (existing != null)
+            return CreateSoloMatchResult.Success(existing);
 
         var match = new SoloMatch
         {

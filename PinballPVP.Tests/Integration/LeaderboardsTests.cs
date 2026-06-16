@@ -90,7 +90,7 @@ public class LeaderboardsTests(PinballApiFactory factory) : IntegrationTestBase(
     {
         var (bobId, bobToken, _) = await RegisterAndLoginAsync();
         for (var i = 0; i < WinRateMinMatches; i++)
-            await CreateSoloMatchAsync(bobId, bobToken, 1000, true);
+            await CreateSoloMatchAsync(bobId, bobToken, 1000 * (i + 1), true);
 
         var rank = await Client.GetFromJsonAsync<PlayerRankDto>($"/api/v1/leaderboards/player/{bobId}");
 

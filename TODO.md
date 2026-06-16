@@ -33,12 +33,3 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
   by the `PlayedAt` index, but a single `FULL OUTER JOIN` CTE would be more efficient. EF Core's
   LINQ API doesn't support `FULL OUTER JOIN` directly — a raw SQL/CTE approach would be needed.
   Acceptable for now; revisit if period-filtered versus leaderboard latency becomes a concern.
-
-## Reliability
-
-- [ ] **Make match-creation win/loss updates idempotent** — `SoloMatchService` and
-  `VersusMatchService` increment `PlayerRecord`/`AllTimeBestRecord` win/loss counters
-  directly as a side effect of `CreateMatchAsync` (see [entities.md](.claude/Contexts/entities.md)).
-  A retried request (client timeout, dropped connection, reconnect resubmitting the same result)
-  could double-count a win or loss. Review for idempotency — e.g. a client-supplied idempotency
-  key, or detecting/deduplicating near-identical recent submissions.
