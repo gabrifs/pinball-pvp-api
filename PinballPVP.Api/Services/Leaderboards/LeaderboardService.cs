@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using PinballPVP.Api.Data;
 using PinballPVP.Api.Dtos;
 using PinballPVP.Api.Dtos.Leaderboards;
@@ -46,11 +47,10 @@ public class LeaderboardService(PinballPVPContext context, IConfiguration config
         string? period, LeaderboardSortBy sortBy, int page, int pageSize, CancellationToken ct = default)
     {
         // All-time: query PlayerRecord (see GetSoloLeaderboardAsync comment for rationale).
-        // Period-filtered: aggregate from VersusMatches via two GroupBy queries merged in memory
-        // (FULL OUTER JOIN not possible in LINQ), bounded by PlayedAt index.
+        // Period-filtered: single FULL OUTER JOIN CTE — ORDER BY and LIMIT pushed into SQL.
         var top = string.IsNullOrEmpty(period)
             ? await GetVersusTopFromRecordsAsync(sortBy, ct)
-            : ApplySort(await GetVersusStatsAsync(period, ct), sortBy).Take(LeaderboardCap).ToList();
+            : await GetVersusTopFromMatchesAsync(period, sortBy, ct);
 
         var ranked = top
             .Skip((page - 1) * pageSize)
@@ -287,6 +287,74 @@ public class LeaderboardService(PinballPVPContext context, IConfiguration config
             .ToListAsync(ct);
 
         return [.. raw.Select(s => new LeaderboardStats(s.UserId, s.Nickname, s.Highscore, s.Wins, s.Losses))];
+    }
+
+    // Period-filtered versus top-N: single FULL OUTER JOIN CTE — ORDER BY and LIMIT pushed into SQL.
+    // GetVersusStatsAsync (below) still handles the rank-computation path, where a cap cannot apply.
+    private async Task<List<LeaderboardStats>> GetVersusTopFromMatchesAsync(
+        string period, LeaderboardSortBy sortBy, CancellationToken ct)
+    {
+        var (start, end) = PeriodFilterExtensions.GetPeriodRange(period);
+
+        var (winRateWhere, orderBy) = sortBy switch
+        {
+            LeaderboardSortBy.Highscore => (
+                string.Empty,
+                "GREATEST(COALESCE(w.winner_highscore, 0), COALESCE(l.loser_highscore, 0)) DESC"),
+            LeaderboardSortBy.Wins => (
+                string.Empty,
+                "COALESCE(w.wins, 0) DESC"),
+            LeaderboardSortBy.WinRate => (
+                "WHERE COALESCE(w.wins, 0) + COALESCE(l.losses, 0) >= @minMatches",
+                "COALESCE(w.wins, 0)::double precision / (COALESCE(w.wins, 0) + COALESCE(l.losses, 0)) DESC"),
+            _ => throw new ArgumentOutOfRangeException(nameof(sortBy))
+        };
+
+        var endFilter = end.HasValue ? "AND vm.played_at < @end" : string.Empty;
+
+        var sql = $"""
+            WITH winners AS (
+                SELECT vm.winner_id,
+                       u.nickname,
+                       COUNT(*)::int             AS wins,
+                       MAX(vm.winner_final_score) AS winner_highscore
+                FROM   versus_matches vm
+                JOIN   users u ON u.id = vm.winner_id
+                WHERE  vm.played_at >= @start {endFilter}
+                GROUP  BY vm.winner_id, u.nickname
+            ),
+            losers AS (
+                SELECT vm.loser_id,
+                       u.nickname,
+                       COUNT(*)::int             AS losses,
+                       MAX(vm.loser_final_score)  AS loser_highscore
+                FROM   versus_matches vm
+                JOIN   users u ON u.id = vm.loser_id
+                WHERE  vm.played_at >= @start {endFilter}
+                GROUP  BY vm.loser_id, u.nickname
+            )
+            SELECT COALESCE(w.winner_id,        l.loser_id)    AS "UserId",
+                   COALESCE(w.nickname,         l.nickname)    AS "Nickname",
+                   COALESCE(w.wins,   0)                       AS "Wins",
+                   COALESCE(l.losses, 0)                       AS "Losses",
+                   GREATEST(COALESCE(w.winner_highscore, 0),
+                            COALESCE(l.loser_highscore,  0))   AS "Highscore"
+            FROM   winners w
+            FULL   OUTER JOIN losers l ON l.loser_id = w.winner_id
+            {winRateWhere}
+            ORDER  BY {orderBy}
+            LIMIT  {LeaderboardCap}
+            """;
+
+        var parameters = new List<NpgsqlParameter> { new("start", start) };
+        if (end.HasValue)
+            parameters.Add(new("end", end.Value));
+        if (sortBy == LeaderboardSortBy.WinRate)
+            parameters.Add(new("minMatches", _winRateMinMatches));
+
+        return [.. await context.Database
+            .SqlQueryRaw<LeaderboardStats>(sql, [.. parameters])
+            .ToListAsync(ct)];
     }
 
     // Period-filtered versus stats for all players, via two GroupBy queries merged in memory (for rank computation).

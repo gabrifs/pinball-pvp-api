@@ -25,11 +25,3 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
   becomes the permanent home for production player data with no managed backups; a host disk
   failure would mean total data loss. Plan and implement a backup strategy (e.g. scheduled
   `pg_dump` of the `pgdata` volume to an external/offsite location).
-
-## Performance
-
-- [ ] **Push period-filtered versus leaderboard cap to SQL** — `GetVersusStatsAsync` (used for the
-  `?period=week|month|year` path only) runs two `GROUP BY` queries merged in memory and is bounded
-  by the `PlayedAt` index, but a single `FULL OUTER JOIN` CTE would be more efficient. EF Core's
-  LINQ API doesn't support `FULL OUTER JOIN` directly — a raw SQL/CTE approach would be needed.
-  Acceptable for now; revisit if period-filtered versus leaderboard latency becomes a concern.

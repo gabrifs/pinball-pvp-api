@@ -99,6 +99,33 @@ public class LeaderboardsTests(PinballApiFactory factory) : IntegrationTestBase(
     }
 
     [Fact]
+    public async Task GetVersusLeaderboard_WithPeriodFilter_ReturnsCorrectStatsForBothWinnerAndLoser()
+    {
+        // Exercises the FULL OUTER JOIN CTE path: alice appears only in the winners CTE,
+        // bob only in the losers CTE — both must appear in the result with correct stats.
+        var (aliceId, aliceToken, _) = await RegisterAndLoginAsync();
+        var (bobId, bobToken, _)     = await RegisterAndLoginAsync();
+
+        await PlayVersusMatchAsync(aliceId, aliceToken, 8000, bobId, bobToken, 5000);
+
+        var result = await Client.GetFromJsonAsync<PagedResult<VersusLeaderboardEntryDto>>(
+            "/api/v1/leaderboards/versus/wins?period=year");
+
+        var alice = result!.Items.FirstOrDefault(e => e.UserId == aliceId);
+        var bob   = result.Items.FirstOrDefault(e => e.UserId == bobId);
+
+        Assert.NotNull(alice);
+        Assert.Equal(1, alice!.Wins);
+        Assert.Equal(0, alice.Losses);
+        Assert.Equal(8000, alice.Highscore);
+
+        Assert.NotNull(bob);
+        Assert.Equal(0, bob!.Wins);
+        Assert.Equal(1, bob.Losses);
+        Assert.Equal(5000, bob.Highscore);
+    }
+
+    [Fact]
     public async Task GetVersusWinRateLeaderboard_ExcludesPlayersBelowMinMatchesThreshold()
     {
         var (aliceId, aliceToken, _)     = await RegisterAndLoginAsync();

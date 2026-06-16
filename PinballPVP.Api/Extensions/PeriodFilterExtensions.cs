@@ -30,7 +30,7 @@ public static class PeriodFilterExtensions
         (new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
          new DateTime(year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
-    private static (DateTime Start, DateTime? End) GetPeriodRange(string period)
+    public static (DateTime Start, DateTime? End) GetPeriodRange(string period)
     {
         var now = DateTime.UtcNow;
         // Use explicit DateTimeKind.Utc — DateTime.Date strips the Kind to Unspecified,
