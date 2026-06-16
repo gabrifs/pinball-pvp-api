@@ -333,12 +333,14 @@ public class LeaderboardService(PinballPVPContext context, IConfiguration config
                 WHERE  vm.played_at >= @start {endFilter}
                 GROUP  BY vm.loser_id, u.nickname
             )
-            SELECT COALESCE(w.winner_id,        l.loser_id)    AS "UserId",
-                   COALESCE(w.nickname,         l.nickname)    AS "Nickname",
-                   COALESCE(w.wins,   0)                       AS "Wins",
-                   COALESCE(l.losses, 0)                       AS "Losses",
+            -- Aliases must be snake_case: UseSnakeCaseNamingConvention() applies to
+            -- SqlQueryRaw<T> column mapping, so EF Core expects user_id not "UserId".
+            SELECT COALESCE(w.winner_id,        l.loser_id)    AS user_id,
+                   COALESCE(w.nickname,         l.nickname)    AS nickname,
+                   COALESCE(w.wins,   0)                       AS wins,
+                   COALESCE(l.losses, 0)                       AS losses,
                    GREATEST(COALESCE(w.winner_highscore, 0),
-                            COALESCE(l.loser_highscore,  0))   AS "Highscore"
+                            COALESCE(l.loser_highscore,  0))   AS highscore
             FROM   winners w
             FULL   OUTER JOIN losers l ON l.loser_id = w.winner_id
             {winRateWhere}
@@ -390,5 +392,8 @@ public class LeaderboardService(PinballPVPContext context, IConfiguration config
         })];
     }
 
-    private sealed record LeaderboardStats(int UserId, string Nickname, int Highscore, int Wins, int Losses);
 }
+
+// Used by LeaderboardService for both LINQ projections and SqlQueryRaw materialisation.
+// Must be internal (not private nested) so EF Core's expression-tree compiler can access it.
+internal sealed record LeaderboardStats(int UserId, string Nickname, int Highscore, int Wins, int Losses);

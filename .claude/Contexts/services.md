@@ -42,6 +42,13 @@ orchestration logic, not persistence-only, but it still belongs in the service p
 - Period validation (`period.IsValidPeriod()`) stays in the controller as a guard clause, like the
   `[Range(...)]` attribute validation on `page`/`pageSize` — it's pure request-shape validation with no
   DB dependency, not business logic.
+- **Period-filtered versus leaderboard** (`GetVersusTopFromMatchesAsync`) uses a raw SQL FULL OUTER
+  JOIN CTE (`Database.SqlQueryRaw<LeaderboardStats>`) so ORDER BY and LIMIT are pushed to SQL rather
+  than applied in memory after materialising all rows. LINQ cannot express FULL OUTER JOIN, so raw SQL
+  is the only option here. `GetVersusStatsAsync` (two LINQ GROUP BY queries merged in memory) is kept
+  separately for `GetPlayerRankAsync`, where a cap cannot apply — rank computation requires every
+  player's stats. `PeriodFilterExtensions.GetPeriodRange` is public so the service can translate the
+  period string to UTC date bounds for the raw SQL parameters.
 
 `SoloMatchesController` / `Services/SoloMatches/` (fifth) and `VersusMatchesController` /
 `Services/VersusMatches/` (sixth) complete the controller migration:
