@@ -89,22 +89,33 @@ highscores come from the respective winner/loser columns.
 
 **Leaderboard cap:** both leaderboard endpoints are limited to the top 100 entries
 (`LeaderboardCap = 100` constant in `LeaderboardService`). `PagedResult.TotalCount` reflects this
-capped count (≤ 100), so pagination operates within the 100-entry window. `GetPlayerRankAsync` is
-unaffected — it still loads all players to compute each player's absolute rank.
+capped count (≤ 100), so pagination operates within the 100-entry window.
 
-**Solo sorting and pagination:** sort + `LIMIT 100` are pushed into the EF Core SQL query
-(`GroupBy` → `Select` → `OrderBy[Descending]` → `Take(100)` → `ToListAsync`), so at most 100 rows
-are ever fetched from the DB. Pagination (`Skip`/`Take`) then operates in memory on this bounded list.
+**Data source — all-time vs. period-filtered:** the query strategy branches on whether `?period` is supplied.
 
-**Versus sorting and pagination:** the two-query winner/loser merge can't be pushed to SQL without
-a raw `FULL OUTER JOIN`; `GetVersusStatsAsync` still loads all players' stats, but the result is
-capped to 100 after the in-memory sort before pagination. See TODO.md for the full-SQL-push future work.
+| Path | Source | Why |
+| ---- | ------ | --- |
+| All-time (no `?period`) | `PlayerRecords` | One row per user, maintained incrementally on each match. ORDER BY + LIMIT 100 stays in SQL at O(log n) with an index — no GROUP BY aggregation over all matches. |
+| Period-filtered (`?period=week\|month\|year`) | `SoloMatches` / `VersusMatches` | Period filter uses the `PlayedAt` index so only the bounded recent window is scanned. `PlayerRecord` has no period breakdown. |
+
+Both leaderboard and rank endpoints (`GetPlayerRankAsync`) follow this branching. `GetPlayerRankAsync`
+loads all qualifying players (no `LIMIT`) to compute each player's absolute rank; the rest of the
+rank logic (sorting, `FindIndex`) happens in memory.
+
+**Solo queries:** sort + `LIMIT 100` (leaderboard) or no limit (rank) pushed into the EF Core SQL
+query — `GroupBy` → `Select` → `OrderBy` → optional `Take(100)` → `ToListAsync`. Pagination in memory.
+
+**Versus all-time queries:** same as solo but reads `PlayerRecord.VersusWins`/`VersusLosses`/
+`VersusHighscore` — wins and losses are already combined in `PlayerRecord`, so no need for the
+two-query merge.
+
+**Versus period-filtered queries:** still uses two `GroupBy` queries (one on `WinnerId`, one on
+`LoserId`) merged in memory, then sorted and capped at `LeaderboardCap`. See TODO.md for the
+`FULL OUTER JOIN` future-work item.
 
 `WinRate` is `Math.Round(wins / (wins + losses) * 100, 2)` — computed in memory from fetched integers.
-The private `ApplySort(stats, LeaderboardSortBy)` helper switches on the `LeaderboardSortBy` enum
-(`Highscore`/`Wins`/`WinRate`) so the `GetVersusLeaderboardAsync` and `GetPlayerRankAsync` rank
-computation share one sorting implementation. Solo leaderboard uses the same switch inline on the
-EF `IQueryable` to push the sort into SQL.
+The private `ApplySort(stats, LeaderboardSortBy)` helper centralises the in-memory sort logic; SQL
+sort uses the equivalent `OrderByDescending` inline in each query helper.
 
 ## Yearly leaderboards and all-time bests
 

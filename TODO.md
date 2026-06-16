@@ -28,14 +28,11 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Performance
 
-- [ ] **Push versus leaderboard cap to SQL** — `GetVersusLeaderboardAsync` in `LeaderboardService`
-  caps the in-memory result to the top 100 entries after sorting, but `GetVersusStatsAsync` still
-  loads all players' stats from the DB first (two `GROUP BY` queries merged in memory). A full
-  SQL-level fix requires a `FULL OUTER JOIN` across the two groupings, which EF Core's LINQ API
-  doesn't support directly — it would need either raw SQL/a CTE or a DB view. Solo leaderboards
-  already push sort + `LIMIT 100` into SQL via the EF Core query. For versus, the current approach
-  is acceptable until the player base is large enough that the `GROUP BY` aggregation itself
-  becomes a bottleneck.
+- [ ] **Push period-filtered versus leaderboard cap to SQL** — `GetVersusStatsAsync` (used for the
+  `?period=week|month|year` path only) runs two `GROUP BY` queries merged in memory and is bounded
+  by the `PlayedAt` index, but a single `FULL OUTER JOIN` CTE would be more efficient. EF Core's
+  LINQ API doesn't support `FULL OUTER JOIN` directly — a raw SQL/CTE approach would be needed.
+  Acceptable for now; revisit if period-filtered versus leaderboard latency becomes a concern.
 
 ## Reliability
 

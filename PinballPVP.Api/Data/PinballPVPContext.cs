@@ -38,6 +38,14 @@ public class PinballPVPContext : DbContext
             .WithOne(playerRecord => playerRecord.User)
             .HasForeignKey<PlayerRecord>(playerRecord => playerRecord.UserId);
 
+        // Indexes to support ORDER BY … LIMIT 100 on all-time leaderboard and rank queries.
+        // PostgreSQL can scan a B-tree index in either direction, so a plain index covers both
+        // ASC and DESC sorts without needing separate descending indexes.
+        modelBuilder.Entity<PlayerRecord>().HasIndex(r => r.SoloHighscore);
+        modelBuilder.Entity<PlayerRecord>().HasIndex(r => r.SoloWins);
+        modelBuilder.Entity<PlayerRecord>().HasIndex(r => r.VersusHighscore);
+        modelBuilder.Entity<PlayerRecord>().HasIndex(r => r.VersusWins);
+
         // User <--One-to-One--> All-Time Best Record
         // AllTimeBestRecord: Set UserID as the Primary Key
         modelBuilder.Entity<AllTimeBestRecord>()
