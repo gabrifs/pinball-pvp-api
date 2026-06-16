@@ -28,13 +28,14 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Performance
 
-- [ ] **Limit leaderboard queries to the top 100** — `LeaderboardService`'s aggregation
-  helpers (`GetSoloStatsAsync`/`GetVersusStatsAsync`, see
-  [controllers.md](.claude/Contexts/controllers.md)) currently load every player's stats for the
-  selected period before sorting and paginating in memory. As the player base grows this becomes
-  an unbounded query/aggregation over the whole table. Investigate capping the overall
-  leaderboards to the top 100 players (e.g. push sorting/limiting into the SQL query) instead of
-  loading and sorting the full result set.
+- [ ] **Push versus leaderboard cap to SQL** — `GetVersusLeaderboardAsync` in `LeaderboardService`
+  caps the in-memory result to the top 100 entries after sorting, but `GetVersusStatsAsync` still
+  loads all players' stats from the DB first (two `GROUP BY` queries merged in memory). A full
+  SQL-level fix requires a `FULL OUTER JOIN` across the two groupings, which EF Core's LINQ API
+  doesn't support directly — it would need either raw SQL/a CTE or a DB view. Solo leaderboards
+  already push sort + `LIMIT 100` into SQL via the EF Core query. For versus, the current approach
+  is acceptable until the player base is large enough that the `GROUP BY` aggregation itself
+  becomes a bottleneck.
 
 ## Reliability
 

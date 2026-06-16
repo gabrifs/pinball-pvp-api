@@ -13,13 +13,39 @@ public class LeaderboardService(PinballPVPContext context, IConfiguration config
     // otherwise a single win (100% with 1 match) would top the board over established players.
     private readonly int _winRateMinMatches = configuration.GetValue("Leaderboard:WinRateMinMatches", 10);
 
+    // Leaderboards are capped at this many entries; pagination operates within this fixed window.
+    private const int LeaderboardCap = 100;
+
     public async Task<PagedResult<SoloLeaderboardEntryDto>> GetSoloLeaderboardAsync(
         string? period, LeaderboardSortBy sortBy, int page, int pageSize, CancellationToken ct = default)
     {
-        var allStats = await GetSoloStatsAsync(period, ct);
-        var sorted = ApplySort(allStats, sortBy).ToList();
+        // Push sort + cap into SQL so we never load more than LeaderboardCap rows.
+        var baseQuery = context.SoloMatches
+            .ApplyPeriodFilter(period)
+            .AsNoTracking()
+            .GroupBy(m => new { m.UserId, m.User.Nickname })
+            .Select(g => new
+            {
+                g.Key.UserId,
+                g.Key.Nickname,
+                Highscore = g.Max(m => m.FinalScore),
+                Wins      = g.Count(m => m.HasWon),
+                Losses    = g.Count(m => !m.HasWon)
+            });
 
-        var ranked = sorted
+        var top = await (sortBy switch
+        {
+            LeaderboardSortBy.Highscore => baseQuery
+                .OrderByDescending(x => x.Highscore),
+            LeaderboardSortBy.Wins => baseQuery
+                .OrderByDescending(x => x.Wins),
+            LeaderboardSortBy.WinRate => baseQuery
+                .Where(x => x.Wins + x.Losses >= _winRateMinMatches)
+                .OrderByDescending(x => (double)x.Wins / (x.Wins + x.Losses)),
+            _ => throw new ArgumentOutOfRangeException(nameof(sortBy))
+        }).Take(LeaderboardCap).ToListAsync(ct);
+
+        var ranked = top
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select((item, i) => new SoloLeaderboardEntryDto(
@@ -32,16 +58,18 @@ public class LeaderboardService(PinballPVPContext context, IConfiguration config
                 Math.Round((double)item.Wins / (item.Wins + item.Losses) * 100, 2)))
             .ToList();
 
-        return new PagedResult<SoloLeaderboardEntryDto>(ranked, page, pageSize, sorted.Count);
+        return new PagedResult<SoloLeaderboardEntryDto>(ranked, page, pageSize, top.Count);
     }
 
     public async Task<PagedResult<VersusLeaderboardEntryDto>> GetVersusLeaderboardAsync(
         string? period, LeaderboardSortBy sortBy, int page, int pageSize, CancellationToken ct = default)
     {
+        // The two-query winner/loser merge prevents pushing the cap to SQL without a raw FULL OUTER
+        // JOIN; GetVersusStatsAsync loads all players but the sorted result is capped here.
         var allStats = await GetVersusStatsAsync(period, ct);
-        var sorted = ApplySort(allStats, sortBy).ToList();
+        var top = ApplySort(allStats, sortBy).Take(LeaderboardCap).ToList();
 
-        var ranked = sorted
+        var ranked = top
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select((item, i) => new VersusLeaderboardEntryDto(
@@ -54,7 +82,7 @@ public class LeaderboardService(PinballPVPContext context, IConfiguration config
                 Math.Round((double)item.Wins / (item.Wins + item.Losses) * 100, 2)))
             .ToList();
 
-        return new PagedResult<VersusLeaderboardEntryDto>(ranked, page, pageSize, sorted.Count);
+        return new PagedResult<VersusLeaderboardEntryDto>(ranked, page, pageSize, top.Count);
     }
 
     public async Task<YearlyLeaderboardResponseDto?> GetYearlyLeaderboardAsync(int year, CancellationToken ct = default)

@@ -87,13 +87,24 @@ path sorts three ways per mode (via `ApplySort`) and locates the player by `Find
 (one grouping by `WinnerId`, one by `LoserId`) then merged in memory by `UserId`. Nicknames and
 highscores come from the respective winner/loser columns.
 
-**Sorting and pagination** happen in memory after the DB fetch (the full filtered set is loaded,
-sorted, then `Skip`/`Take` applied). Rank is `(page - 1) * pageSize + index + 1`.
+**Leaderboard cap:** both leaderboard endpoints are limited to the top 100 entries
+(`LeaderboardCap = 100` constant in `LeaderboardService`). `PagedResult.TotalCount` reflects this
+capped count (≤ 100), so pagination operates within the 100-entry window. `GetPlayerRankAsync` is
+unaffected — it still loads all players to compute each player's absolute rank.
+
+**Solo sorting and pagination:** sort + `LIMIT 100` are pushed into the EF Core SQL query
+(`GroupBy` → `Select` → `OrderBy[Descending]` → `Take(100)` → `ToListAsync`), so at most 100 rows
+are ever fetched from the DB. Pagination (`Skip`/`Take`) then operates in memory on this bounded list.
+
+**Versus sorting and pagination:** the two-query winner/loser merge can't be pushed to SQL without
+a raw `FULL OUTER JOIN`; `GetVersusStatsAsync` still loads all players' stats, but the result is
+capped to 100 after the in-memory sort before pagination. See TODO.md for the full-SQL-push future work.
 
 `WinRate` is `Math.Round(wins / (wins + losses) * 100, 2)` — computed in memory from fetched integers.
 The private `ApplySort(stats, LeaderboardSortBy)` helper switches on the `LeaderboardSortBy` enum
-(`Highscore`/`Wins`/`WinRate`) so the two paginated service methods and the rank computation share one
-sorting implementation.
+(`Highscore`/`Wins`/`WinRate`) so the `GetVersusLeaderboardAsync` and `GetPlayerRankAsync` rank
+computation share one sorting implementation. Solo leaderboard uses the same switch inline on the
+EF `IQueryable` to push the sort into SQL.
 
 ## Yearly leaderboards and all-time bests
 
