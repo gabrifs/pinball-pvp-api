@@ -100,6 +100,27 @@ public class SoloMatchesTests(PinballApiFactory factory) : IntegrationTestBase(f
     }
 
     [Fact]
+    public async Task CreateMatch_DuplicateWithinWindow_Returns201WithSameMatchAndNoDoubleCounting()
+    {
+        var (userId, token, _) = await RegisterAndLoginAsync();
+        Authorize(token);
+
+        var dto = new CreateSoloMatchDto(userId, 5000, 3, true);
+        var first  = await Client.PostAsJsonAsync("/api/v1/solomatches", dto);
+        var second = await Client.PostAsJsonAsync("/api/v1/solomatches", dto);
+
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+
+        var firstMatch  = await first.Content.ReadFromJsonAsync<SoloMatchResponseDto>();
+        var secondMatch = await second.Content.ReadFromJsonAsync<SoloMatchResponseDto>();
+        Assert.Equal(firstMatch!.Id, secondMatch!.Id);
+
+        var record = await Client.GetFromJsonAsync<PlayerRecordResponseDto>(
+            $"/api/v1/users/playerrecords/{userId}");
+        Assert.Equal(1, record!.SoloWins);
+    }
+
+    [Fact]
     public async Task GetMatches_Returns200WithPagedResult()
     {
         var (userId, token, _) = await RegisterAndLoginAsync();

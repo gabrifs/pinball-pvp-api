@@ -25,22 +25,3 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
   becomes the permanent home for production player data with no managed backups; a host disk
   failure would mean total data loss. Plan and implement a backup strategy (e.g. scheduled
   `pg_dump` of the `pgdata` volume to an external/offsite location).
-
-## Performance
-
-- [ ] **Limit leaderboard queries to the top 100** — `LeaderboardService`'s aggregation
-  helpers (`GetSoloStatsAsync`/`GetVersusStatsAsync`, see
-  [controllers.md](.claude/Contexts/controllers.md)) currently load every player's stats for the
-  selected period before sorting and paginating in memory. As the player base grows this becomes
-  an unbounded query/aggregation over the whole table. Investigate capping the overall
-  leaderboards to the top 100 players (e.g. push sorting/limiting into the SQL query) instead of
-  loading and sorting the full result set.
-
-## Reliability
-
-- [ ] **Make match-creation win/loss updates idempotent** — `SoloMatchService` and
-  `VersusMatchService` increment `PlayerRecord`/`AllTimeBestRecord` win/loss counters
-  directly as a side effect of `CreateMatchAsync` (see [entities.md](.claude/Contexts/entities.md)).
-  A retried request (client timeout, dropped connection, reconnect resubmitting the same result)
-  could double-count a win or loss. Review for idempotency — e.g. a client-supplied idempotency
-  key, or detecting/deduplicating near-identical recent submissions.

@@ -42,6 +42,13 @@ orchestration logic, not persistence-only, but it still belongs in the service p
 - Period validation (`period.IsValidPeriod()`) stays in the controller as a guard clause, like the
   `[Range(...)]` attribute validation on `page`/`pageSize` — it's pure request-shape validation with no
   DB dependency, not business logic.
+- **Period-filtered versus leaderboard** (`GetVersusTopFromMatchesAsync`) uses a raw SQL FULL OUTER
+  JOIN CTE (`Database.SqlQueryRaw<LeaderboardStats>`) so ORDER BY and LIMIT are pushed to SQL rather
+  than applied in memory after materialising all rows. LINQ cannot express FULL OUTER JOIN, so raw SQL
+  is the only option here. `GetVersusStatsAsync` (two LINQ GROUP BY queries merged in memory) is kept
+  separately for `GetPlayerRankAsync`, where a cap cannot apply — rank computation requires every
+  player's stats. `PeriodFilterExtensions.GetPeriodRange` is public so the service can translate the
+  period string to UTC date bounds for the raw SQL parameters.
 
 `SoloMatchesController` / `Services/SoloMatches/` (fifth) and `VersusMatchesController` /
 `Services/VersusMatches/` (sixth) complete the controller migration:
@@ -60,6 +67,15 @@ orchestration logic, not persistence-only, but it still belongs in the service p
   reporter, `202 Accepted`, no `Match`) — alongside `UsersNotFound`, `AlreadyPending`,
   `ResultsMismatch`, and `PendingConflict` (the unique-index race), each mapped to its own `400`/`409`
   response by the controller.
+- Both `CreateMatchAsync` implementations deduplicate retried submissions within a 60-second window
+  (`DeduplicationWindowSeconds = 60`). Before any state mutation, each service queries for an existing
+  match with an identical payload (same `UserId`/`FinalScore`/`RoundsWon`/`HasWon` for solo; same six
+  score fields for versus) created in the last 60 seconds — if found, it returns that match without
+  creating a new one or touching `PlayerRecord`. For versus, the dedup sits in the second-reporter
+  confirmation path and handles the realistic retry scenario where the confirmed response was lost in
+  transit: the other player (now acting as second reporter for the re-submitted pending) finds the
+  already-committed match and returns it cleanly. **Tests must use distinct payloads when submitting
+  multiple legitimate matches in a short loop, to avoid being caught by the dedup check.**
 - Two checks stay in `VersusMatchesController` rather than the service: `dto.WinnerId == dto.LoserId`
   (pure cross-field DTO validation, no DB dependency — same rationale as period validation) and the
   `User.GetUserId()` participant check that returns `Forbid()` (needs the `ClaimsPrincipal`, which

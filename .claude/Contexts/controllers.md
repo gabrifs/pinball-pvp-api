@@ -87,13 +87,35 @@ path sorts three ways per mode (via `ApplySort`) and locates the player by `Find
 (one grouping by `WinnerId`, one by `LoserId`) then merged in memory by `UserId`. Nicknames and
 highscores come from the respective winner/loser columns.
 
-**Sorting and pagination** happen in memory after the DB fetch (the full filtered set is loaded,
-sorted, then `Skip`/`Take` applied). Rank is `(page - 1) * pageSize + index + 1`.
+**Leaderboard cap:** both leaderboard endpoints are limited to the top 100 entries
+(`LeaderboardCap = 100` constant in `LeaderboardService`). `PagedResult.TotalCount` reflects this
+capped count (≤ 100), so pagination operates within the 100-entry window.
+
+**Data source — all-time vs. period-filtered:** the query strategy branches on whether `?period` is supplied.
+
+| Path | Source | Why |
+| ---- | ------ | --- |
+| All-time (no `?period`) | `PlayerRecords` | One row per user, maintained incrementally on each match. ORDER BY + LIMIT 100 stays in SQL at O(log n) with an index — no GROUP BY aggregation over all matches. |
+| Period-filtered (`?period=week\|month\|year`) | `SoloMatches` / `VersusMatches` | Period filter uses the `PlayedAt` index so only the bounded recent window is scanned. `PlayerRecord` has no period breakdown. |
+
+Both leaderboard and rank endpoints (`GetPlayerRankAsync`) follow this branching. `GetPlayerRankAsync`
+loads all qualifying players (no `LIMIT`) to compute each player's absolute rank; the rest of the
+rank logic (sorting, `FindIndex`) happens in memory.
+
+**Solo queries:** sort + `LIMIT 100` (leaderboard) or no limit (rank) pushed into the EF Core SQL
+query — `GroupBy` → `Select` → `OrderBy` → optional `Take(100)` → `ToListAsync`. Pagination in memory.
+
+**Versus all-time queries:** same as solo but reads `PlayerRecord.VersusWins`/`VersusLosses`/
+`VersusHighscore` — wins and losses are already combined in `PlayerRecord`, so no need for the
+two-query merge.
+
+**Versus period-filtered queries:** still uses two `GroupBy` queries (one on `WinnerId`, one on
+`LoserId`) merged in memory, then sorted and capped at `LeaderboardCap`. See TODO.md for the
+`FULL OUTER JOIN` future-work item.
 
 `WinRate` is `Math.Round(wins / (wins + losses) * 100, 2)` — computed in memory from fetched integers.
-The private `ApplySort(stats, LeaderboardSortBy)` helper switches on the `LeaderboardSortBy` enum
-(`Highscore`/`Wins`/`WinRate`) so the two paginated service methods and the rank computation share one
-sorting implementation.
+The private `ApplySort(stats, LeaderboardSortBy)` helper centralises the in-memory sort logic; SQL
+sort uses the equivalent `OrderByDescending` inline in each query helper.
 
 ## Yearly leaderboards and all-time bests
 

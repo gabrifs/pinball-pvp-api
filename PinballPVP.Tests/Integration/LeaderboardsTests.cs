@@ -90,12 +90,39 @@ public class LeaderboardsTests(PinballApiFactory factory) : IntegrationTestBase(
     {
         var (bobId, bobToken, _) = await RegisterAndLoginAsync();
         for (var i = 0; i < WinRateMinMatches; i++)
-            await CreateSoloMatchAsync(bobId, bobToken, 1000, true);
+            await CreateSoloMatchAsync(bobId, bobToken, 1000 * (i + 1), true);
 
         var rank = await Client.GetFromJsonAsync<PlayerRankDto>($"/api/v1/leaderboards/player/{bobId}");
 
         Assert.NotNull(rank!.Solo);
         Assert.Equal(1, rank.Solo!.WinRateRank);
+    }
+
+    [Fact]
+    public async Task GetVersusLeaderboard_WithPeriodFilter_ReturnsCorrectStatsForBothWinnerAndLoser()
+    {
+        // Exercises the FULL OUTER JOIN CTE path: alice appears only in the winners CTE,
+        // bob only in the losers CTE — both must appear in the result with correct stats.
+        var (aliceId, aliceToken, _) = await RegisterAndLoginAsync();
+        var (bobId, bobToken, _)     = await RegisterAndLoginAsync();
+
+        await PlayVersusMatchAsync(aliceId, aliceToken, 8000, bobId, bobToken, 5000);
+
+        var result = await Client.GetFromJsonAsync<PagedResult<VersusLeaderboardEntryDto>>(
+            "/api/v1/leaderboards/versus/wins?period=year");
+
+        var alice = result!.Items.FirstOrDefault(e => e.UserId == aliceId);
+        var bob   = result.Items.FirstOrDefault(e => e.UserId == bobId);
+
+        Assert.NotNull(alice);
+        Assert.Equal(1, alice!.Wins);
+        Assert.Equal(0, alice.Losses);
+        Assert.Equal(8000, alice.Highscore);
+
+        Assert.NotNull(bob);
+        Assert.Equal(0, bob!.Wins);
+        Assert.Equal(1, bob.Losses);
+        Assert.Equal(5000, bob.Highscore);
     }
 
     [Fact]

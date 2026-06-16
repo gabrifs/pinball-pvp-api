@@ -8,6 +8,8 @@ namespace PinballPVP.Api.Services.VersusMatches;
 
 public class VersusMatchService(PinballPVPContext context) : IVersusMatchService
 {
+    // See SoloMatchService for rationale — same dedup window applied to the second-reporter path.
+    private const int DeduplicationWindowSeconds = 60;
     public async Task<PagedResult<VersusMatchResponseDto>> GetMatchesAsync(
         string? period, int page, int pageSize, CancellationToken ct = default)
     {
@@ -93,6 +95,28 @@ public class VersusMatchService(PinballPVPContext context) : IVersusMatchService
             {
                 await context.SaveChangesAsync(ct);
                 return CreateVersusMatchResult.Failure(CreateVersusMatchError.ResultsMismatch);
+            }
+
+            // Dedup: a prior second-reporter request may have already committed this match (response
+            // lost in transit → both players retry → this path runs again). Return the existing match
+            // after cleaning up the re-created pending record; don't double-count stats.
+            var cutoff = now.AddSeconds(-DeduplicationWindowSeconds);
+            var existingMatch = await context.VersusMatches
+                .AsNoTracking()
+                .Where(m => m.WinnerId == dto.WinnerId
+                         && m.LoserId == dto.LoserId
+                         && m.WinnerFinalScore == dto.WinnerFinalScore
+                         && m.WinnerRoundsWon == dto.WinnerRoundsWon
+                         && m.LoserFinalScore == dto.LoserFinalScore
+                         && m.LoserRoundsWon == dto.LoserRoundsWon
+                         && m.PlayedAt > cutoff)
+                .Select(VersusMatchResponseDto.Projection)
+                .FirstOrDefaultAsync(ct);
+
+            if (existingMatch != null)
+            {
+                await context.SaveChangesAsync(ct); // persist pending match removal
+                return CreateVersusMatchResult.Created(existingMatch);
             }
 
             // Both reporters agree — commit the match
