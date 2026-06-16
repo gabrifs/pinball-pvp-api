@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:17
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # One-off service: applies pending EF Core migrations then exits.
+  # CI runs this before rolling out the api service; it is not restarted after exit.
+  migrate:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG}
+    entrypoint: ["./efbundle"]
+    environment:
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG}
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
+      Jwt__Key: ${Jwt__Key}
+      Jwt__Issuer: ${Jwt__Issuer}
+      Jwt__Audience: ${Jwt__Audience}
+      Jwt__ExpirationMinutes: ${Jwt__ExpirationMinutes}
+      Jwt__RefreshTokenExpirationDays: ${Jwt__RefreshTokenExpirationDays}
+      Email__Host: ${Email__Host}
+      Email__Port: ${Email__Port}
+      Email__FromAddress: ${Email__FromAddress}
+      Email__FromName: ${Email__FromName}
+      Email__Username: ${Email__Username}
+      Email__Password: ${Email__Password}
+      Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0}
+      Leaderboard__WinRateMinMatches: ${Leaderboard__WinRateMinMatches}
+      Maintenance__PurgeIntervalHours: ${Maintenance__PurgeIntervalHours}
+      PasswordRecovery__ExpirationMinutes: ${PasswordRecovery__ExpirationMinutes}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  pgdata:

@@ -5,14 +5,6 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Deployment
 
-- [ ] **Implement self-hosted docker-compose deployment** — architecture is decided: a
-  self-hosted GitHub Actions runner on a Windows PC (Docker Desktop) runs the CI deploy step
-  directly; `docker-compose.yml` defines `db` (Postgres, persistent volume, not exposed to the
-  host) + `api` (the only published port, HTTP-only on 8080) + a one-off `migrate` service that
-  applies pending migrations via an EF Core migration bundle before `api` is rolled out. Secrets
-  live in a `.env` file on the host, outside the git checkout. See the comment at the bottom of
-  [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
 - [ ] **TLS / reverse proxy / public network exposure** — once the deployment above is live, the
   API runs HTTP-only on port 8080, reachable over LAN/port-forward only. Decide on a TLS
   termination strategy (e.g. a reverse proxy such as Caddy/nginx/Traefik added to the compose

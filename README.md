@@ -137,15 +137,42 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pu
 - **docker** (master pushes only) — builds and pushes the production image to
   `ghcr.io/gabrifs/pinball-pvp-api` tagged `:latest` and `:sha-<short-sha>`. Uses the automatic
   `GITHUB_TOKEN`; no credentials to configure.
+- **deploy** (master pushes only, after docker) — runs on a self-hosted GitHub Actions runner on the
+  host machine (Windows PC with Docker Desktop). Pulls the new image, applies any pending EF Core
+  migrations via the bundled `efbundle` executable, then rolls out the API container.
 
-A deploy step is left as a commented placeholder in the workflow until a hosting target is chosen.
-EF Core migrations must be run as a separate step **before** rolling out a new image — see the
-[Docker](#docker) section for the `dotnet ef database update` command.
+### Setting up deployment
+
+1. Register a self-hosted runner for this repository (Settings → Actions → Runners → New self-hosted runner).
+2. Copy `.env.example` to a location **outside** the git checkout on the host (e.g. `C:\pinball-secrets\pinball.env`) and fill in all real values.
+3. Add a repository variable `DEPLOY_ENV_FILE` (Settings → Secrets and variables → Actions → Variables) set to that file path.
 
 ## Docker
 
 A multi-stage `Dockerfile` is included at the repo root. The image listens on **HTTP port 8080**; TLS
 termination is expected to be handled by the reverse proxy or load balancer in front of it.
+
+The image ships with an `efbundle` self-contained EF Core migration executable alongside the API binary.
+The `docker-compose.yml` at the repo root uses this to apply migrations in a one-off `migrate` service
+before the `api` service starts.
+
+### docker-compose (production)
+
+```bash
+# On the host machine, with the .env file in place:
+docker compose --env-file /path/to/pinball.env up -d --wait
+```
+
+This starts Postgres (`db`), applies pending migrations (`migrate`), then starts the API (`api`).
+The `IMAGE_TAG` and `GITHUB_REPOSITORY` variables are injected by the CI deploy job; for manual
+use, set them in your shell:
+
+```bash
+IMAGE_TAG=latest GITHUB_REPOSITORY=gabrifs/pinball-pvp-api \
+  docker compose --env-file /path/to/pinball.env up -d --wait
+```
+
+### Manual container run (local testing)
 
 ```bash
 # Build
@@ -153,17 +180,16 @@ docker build -t pinball-pvp-api .
 
 # Run (supply secrets as environment variables — never bake them into the image)
 docker run -p 8080:8080 \
-  -e ASPNETCORE_ENVIRONMENT=Production \
-  -e ConnectionStrings__DefaultConnection="Host=db;Port=5432;Database=pinballpvp;Username=...;Password=..." \
+  -e ConnectionStrings__DefaultConnection="Host=db;Database=pinballpvp;Username=...;Password=..." \
   -e Jwt__Key="<long random signing secret>" \
+  -e Email__Host="smtp.example.com" \
   -e Email__Username="<smtp username>" \
   -e Email__Password="<smtp password>" \
-  -e Cors__AllowedOrigins__0="https://your-webgl-host.example.com" \
   pinball-pvp-api
 ```
 
-> **Migrations are not run automatically on startup.** Apply them as a separate step before deploying
-> (e.g. in CI/CD, using an init container, or with an EF migrations bundle):
+> **Migrations are not run automatically on startup.** In production, the `migrate` service in
+> `docker-compose.yml` handles this. For local dev, use:
 >
 > ```bash
 > dotnet ef database update --project PinballPVP.Api
