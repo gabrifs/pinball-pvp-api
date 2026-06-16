@@ -15,6 +15,18 @@ RUN dotnet publish PinballPVP.Api/PinballPVP.Api.csproj \
         --no-restore \
         -o /app/publish
 
+# Build the EF Core migration bundle.
+# Self-contained so the bundle runs in the aspnet runtime image without the SDK.
+# PinballPVPContextFactory (Data/) lets the tool create the DbContext without
+# requiring the full app startup (JWT keys, email config, etc.).
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="/root/.dotnet/tools:${PATH}"
+RUN dotnet ef migrations bundle \
+        --project PinballPVP.Api/PinballPVP.Api.csproj \
+        --self-contained \
+        --runtime linux-x64 \
+        --output /app/publish/efbundle
+
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
@@ -32,8 +44,6 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
 
 EXPOSE 8080
 
-# NOTE: this image does NOT run EF Core migrations on startup.
-# Run migrations as a separate step in CI/CD before deploying:
-#   dotnet ef database update --project PinballPVP.Api
-# or use the equivalent EF bundle / migration script approach.
+# efbundle (alongside this binary) is used by the docker-compose migrate service to
+# apply pending migrations before the API rolls out — it is NOT run on startup here.
 ENTRYPOINT ["dotnet", "PinballPVP.Api.dll"]

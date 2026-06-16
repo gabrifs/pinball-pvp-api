@@ -62,10 +62,46 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── Deploy ────────────────────────────────────────────────────────────────
-      # No deployment step is configured yet. When a hosting target is chosen,
-      # add a step here that:
-      #   1. Runs EF Core migrations against the production database.
-      #   2. Pulls and deploys the image tagged ghcr.io/${{ github.repository }}:sha-<sha>.
-      # The exact implementation depends on the hosting platform
-      # (e.g. SSH + docker compose pull, Fly.io flyctl deploy, Azure Container Apps update, etc.).
+  # ── Deploy ────────────────────────────────────────────────────────────────────
+  # Runs on the self-hosted GitHub Actions runner on the Windows PC (Docker Desktop).
+  # Prerequisites on the host:
+  #   1. Register a self-hosted runner for this repo (Settings → Actions → Runners).
+  #   2. Copy .env.example to the path stored in the DEPLOY_ENV_FILE repository
+  #      variable (Settings → Variables), e.g. C:\pinball-secrets\pinball.env,
+  #      and fill in all real values.
+  # The runner pulls the newly-built image, runs migrations, then rolls out the API.
+  deploy:
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: tag
+        shell: bash
+        run: |
+          sha="${{ github.sha }}"
+          echo "value=sha-${sha:0:7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull new images
+        shell: bash
+        run: docker compose --env-file "$DEPLOY_ENV_FILE" pull api migrate
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.value }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE }}
+
+      - name: Deploy (migrate + start services)
+        shell: bash
+        run: docker compose --env-file "$DEPLOY_ENV_FILE" up -d --wait
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.value }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEPLOY_ENV_FILE: ${{ vars.DEPLOY_ENV_FILE }}

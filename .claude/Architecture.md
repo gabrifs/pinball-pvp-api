@@ -34,3 +34,5 @@ codebase gains features:
   conventions, and the duplicated period-filter helpers worth consolidating.
 - [Contexts/persistence.md](Contexts/persistence.md) — what `Program.cs` wires up, middleware
   ordering, and the server-side `PlayedAt` timestamp rule.
+- [Contexts/deployment.md](Contexts/deployment.md) — docker-compose architecture, migration bundle
+  setup, CI deploy job, and the host `.env` / `DEPLOY_ENV_FILE` variable split.
