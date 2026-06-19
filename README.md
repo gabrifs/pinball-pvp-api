@@ -137,15 +137,62 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pu
 - **docker** (master pushes only) — builds and pushes the production image to
   `ghcr.io/gabrifs/pinball-pvp-api` tagged `:latest` and `:sha-<short-sha>`. Uses the automatic
   `GITHUB_TOKEN`; no credentials to configure.
-- **deploy** (master pushes only, after docker) — runs on a self-hosted GitHub Actions runner on the
-  host machine (Windows PC with Docker Desktop). Pulls the new image, applies any pending EF Core
-  migrations via the bundled `efbundle` executable, then rolls out the API container.
+- **deploy** (master pushes only, after docker) — runs on a GitHub-hosted `ubuntu-latest` runner.
+  Creates a Docker SSH context pointing at the host machine (Windows PC with Docker Desktop), then
+  drives `docker compose` remotely to pull the new image, apply pending EF Core migrations via the
+  bundled `efbundle` executable, and roll out the API container. No runner agent is needed on the host.
 
 ### Setting up deployment
 
-1. Register a self-hosted runner for this repository (Settings → Actions → Runners → New self-hosted runner).
-2. Copy `.env.example` to a location **outside** the git checkout on the host (e.g. `C:\pinball-secrets\pinball.env`) and fill in all real values.
-3. Add a repository variable `DEPLOY_ENV_FILE` (Settings → Secrets and variables → Actions → Variables) set to that file path.
+**On the host machine (one-time):**
+
+1. Enable Windows OpenSSH Server (Settings → Optional Features → OpenSSH Server).
+2. Generate a dedicated Ed25519 key pair for CI:
+
+   ```bash
+   ssh-keygen -t ed25519 -f deploy_key -C "github-deploy"
+   ```
+
+3. Add the public key (`deploy_key.pub`) to `C:\Users\<user>\.ssh\authorized_keys` on the host.
+4. Ensure Docker Desktop is running on the host; `docker` must be in PATH for the SSH user.
+
+**In GitHub (Settings → Secrets and variables → Actions):**
+
+Add the following **secrets**:
+
+| Secret | Value |
+|---|---|
+| `DEPLOY_SSH_KEY` | Contents of the `deploy_key` private key file |
+| `POSTGRES_DB` | Postgres database name |
+| `POSTGRES_USER` | Postgres user |
+| `POSTGRES_PASSWORD` | Postgres password |
+| `CONNECTION_STRING` | Full Npgsql connection string (`Host=db;Database=...;Username=...;Password=...`) |
+| `JWT_KEY` | HMAC-SHA256 signing key (≥ 32 chars) |
+| `JWT_ISSUER` | JWT issuer claim |
+| `JWT_AUDIENCE` | JWT audience claim |
+| `JWT_EXPIRATION_MINUTES` | Access token lifetime in minutes |
+| `JWT_REFRESH_TOKEN_EXPIRATION_DAYS` | Refresh token lifetime in days |
+| `EMAIL_HOST` | SMTP hostname |
+| `EMAIL_PORT` | SMTP port |
+| `EMAIL_FROM_ADDRESS` | Sender address |
+| `EMAIL_FROM_NAME` | Sender display name |
+| `EMAIL_USERNAME` | SMTP username |
+| `EMAIL_PASSWORD` | SMTP password |
+| `CORS_ALLOWED_ORIGIN_0` | Production frontend URL |
+
+Add the following **variables** (non-sensitive):
+
+| Variable | Value |
+|---|---|
+| `DEPLOY_HOST` | Host public IP or domain |
+| `DEPLOY_SSH_PORT` | SSH port (typically `22`) |
+| `DEPLOY_SSH_USER` | Windows user account name |
+| `LEADERBOARD_WIN_RATE_MIN_MATCHES` | Min matches for win-rate ranking (default `10`) |
+| `MAINTENANCE_PURGE_INTERVAL_HOURS` | Purge interval in hours (default `24`) |
+| `PASSWORD_RECOVERY_EXPIRATION_MINUTES` | Recovery code TTL in minutes (default `15`) |
+
+Optionally create a `production` GitHub Actions **environment** (Settings → Environments) to add
+deployment protection rules (required reviewers, wait timers, etc.) — the deploy job already targets it.
 
 ## Docker
 
@@ -158,19 +205,16 @@ before the `api` service starts.
 
 ### docker-compose (production)
 
-```bash
-# On the host machine, with the .env file in place:
-docker compose --env-file /path/to/pinball.env up -d --wait
-```
+CI drives the stack via a Docker SSH context — no manual steps needed for normal deploys.
 
-This starts Postgres (`db`), applies pending migrations (`migrate`), then starts the API (`api`).
-The `IMAGE_TAG` and `GITHUB_REPOSITORY` variables are injected by the CI deploy job; for manual
-use, set them in your shell:
+For manual runs on the host, copy `.env.example` to `.env`, fill in the values, then:
 
 ```bash
 IMAGE_TAG=latest GITHUB_REPOSITORY=gabrifs/pinball-pvp-api \
-  docker compose --env-file /path/to/pinball.env up -d --wait
+  docker compose up -d --wait
 ```
+
+This starts Postgres (`db`), applies pending migrations (`migrate`), then starts the API (`api`).
 
 ### Manual container run (local testing)
 
