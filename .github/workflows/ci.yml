@@ -110,6 +110,18 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${{ vars.DEPLOY_SSH_PORT }}" "${{ vars.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
+          # deploy_key isn't a default identity filename, so it's never offered unless
+          # explicitly pointed to here — without this, ssh silently falls back to
+          # password auth (which fails, since there's no interactive terminal).
+          cat >> ~/.ssh/config <<EOF
+          Host ${{ vars.DEPLOY_HOST }}
+            User ${{ vars.DEPLOY_SSH_USER }}
+            Port ${{ vars.DEPLOY_SSH_PORT }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+          EOF
+          chmod 600 ~/.ssh/config
+
       - name: Create Docker context
         shell: bash
         run: |
