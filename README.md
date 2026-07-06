@@ -229,6 +229,13 @@ IMAGE_TAG=latest GITHUB_REPOSITORY=gabrifs/pinball-pvp-api \
 
 This starts Postgres (`db`), applies pending migrations (`migrate`), then starts the API (`api`).
 
+### Database backups
+
+[`scripts/backup-database.ps1`](scripts/backup-database.ps1) runs on the host on a schedule (Windows
+Task Scheduler), dumping the database and mirroring backups to Google Drive via `rclone` — see
+[deployment.md](.claude/Contexts/deployment.md#database-backups) for one-time setup and the restore
+procedure.
+
 ### Manual container run (local testing)
 
 ```bash

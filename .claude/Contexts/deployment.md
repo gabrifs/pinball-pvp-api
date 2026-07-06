@@ -46,7 +46,27 @@ docker context create production \
 ```
 
 Then all compose commands run as `docker --context production compose ...`. The runner's `docker`
-CLI speaks to the remote Docker Desktop daemon without any docker daemon on the runner itself.
+CLI speaks to the remote Docker Desktop daemon without any docker daemon on the runner itself — it
+does this by shelling out to the system `ssh` client (visible in error output as
+`ssh -o ConnectTimeout=... -T -l <user> -p <port> -- <host> docker system dial-stdio>`), not a Go
+SSH implementation, so ordinary OpenSSH client config applies.
+
+**Gotcha:** the private key is written to `~/.ssh/deploy_key`, which is not one of OpenSSH's default
+identity filenames (`id_rsa`, `id_ed25519`, etc.) — without an explicit `~/.ssh/config` entry, the
+client silently never offers it and falls back to password auth (which then fails, since there's no
+interactive terminal). The "Set up SSH" step in `ci.yml` therefore also writes:
+
+```ssh-config
+Host <DEPLOY_HOST>
+  User <DEPLOY_SSH_USER>
+  Port <DEPLOY_SSH_PORT>
+  IdentityFile ~/.ssh/deploy_key
+  IdentitiesOnly yes
+```
+
+If this step is ever refactored, keep this config block — its absence produces a generic
+"Permission denied (publickey,password,keyboard-interactive)" error that looks identical to a host-side
+misconfiguration (wrong key, wrong permissions, wrong group), which is a much harder problem to debug.
 
 All `${VAR}` substitutions in `docker-compose.yml` are satisfied by the step `env:` blocks on the
 runner — Docker Compose reads from the process environment. No `.env` file is written anywhere.
@@ -149,3 +169,48 @@ Instead:
   host's underlying IP, so no DDNS equivalent is needed here either).
 - `tailscale funnel --bg` persists across reboots and Tailscale restarts; re-run it manually only if
   the host is fully re-provisioned or removed/re-added to the tailnet.
+
+## Database backups
+
+[`scripts/backup-database.ps1`](../../scripts/backup-database.ps1) runs on the host on a schedule
+(Windows Task Scheduler — not CI, since this is an ongoing host-side operational concern rather than
+something tied to a deploy). It covers both halves of the 3-2-1 rule this project needs:
+
+- **Local** dumps in a local directory (default `C:\pinball-pvp\backups`, overridable — point it at a
+  different physical disk than the OS/Docker if you want the local copy to survive a single-disk
+  failure too), pruned to a retention window (default 14 days).
+- **Offsite**, via `rclone sync` to Google Drive — `sync` (not `copy`) mirrors deletions too, so the
+  remote copy tracks the same retention window without separate cleanup logic.
+
+The script finds the running `db` container by its `com.docker.compose.service=db` label rather than
+a hardcoded name (the project name prefix depends on the checkout directory the `deploy` job used).
+It needs no database credentials: `pg_dump` runs *inside* the container via `docker exec`, using the
+`POSTGRES_USER`/`POSTGRES_DB` environment variables `docker-compose.yml` already injects into it,
+authenticating over the local Unix socket — trusted by default in the official `postgres` image
+regardless of the `host`-line auth method. The dump is written inside the container and pulled out
+with `docker cp` rather than piped through PowerShell's stdout pipeline, since PowerShell can
+silently alter line endings/add a BOM when capturing external process output as text.
+
+**One-time host setup:**
+
+1. Install [rclone](https://rclone.org) and run `rclone config` to add a remote named `gdrive`
+   (interactive OAuth flow, opens a browser).
+2. Register the script in Task Scheduler to run daily, e.g.:
+
+   ```powershell
+   $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"C:\path\to\scripts\backup-database.ps1`""
+   $trigger = New-ScheduledTaskTrigger -Daily -At 3am
+   Register-ScheduledTask -TaskName "PinballPvP-DB-Backup" -Action $action -Trigger $trigger -RunLevel Highest
+   ```
+
+**Restore procedure** (verified working during implementation — plain SQL dump, restored via `psql`,
+not `pg_restore`, since the dump isn't in custom/compressed format):
+
+```powershell
+docker cp <path-to-backup.sql> <db-container-name>:/tmp/restore.sql
+docker exec <db-container-name> sh -c "psql -U `$POSTGRES_USER -d `$POSTGRES_DB -f /tmp/restore.sql"
+```
+
+Restoring into a database that already has the schema/data will produce constraint-violation errors
+on the `COPY`/`INSERT` statements for anything that already exists — this restores into an *empty*
+database (e.g. a fresh `db` container after a disaster), not as a merge into a live one.
