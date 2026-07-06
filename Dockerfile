@@ -31,11 +31,11 @@ RUN dotnet ef migrations bundle \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-RUN adduser --disabled-password --gecos "" appuser
+# The base image ships a built-in non-root user (app, $APP_UID) since .NET 8 —
+# no need to create one, and the current base image no longer includes adduser/useradd anyway.
+COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
 
-COPY --from=build --chown=appuser:appuser /app/publish .
-
-USER appuser
+USER $APP_UID
 
 # Listen on HTTP only — TLS termination is handled by the reverse proxy/load balancer.
 # Override ASPNETCORE_ENVIRONMENT at runtime (e.g. -e ASPNETCORE_ENVIRONMENT=Production).
