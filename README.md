@@ -138,23 +138,33 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pu
   `ghcr.io/gabrifs/pinball-pvp-api` tagged `:latest` and `:sha-<short-sha>`. Uses the automatic
   `GITHUB_TOKEN`; no credentials to configure.
 - **deploy** (master pushes only, after docker) — runs on a GitHub-hosted `ubuntu-latest` runner.
-  Creates a Docker SSH context pointing at the host machine (Windows PC with Docker Desktop), then
+  Joins the project's Tailscale network as an ephemeral node, then creates a Docker SSH context
+  pointing at the host machine (Windows PC with Docker Desktop) over that private connection, and
   drives `docker compose` remotely to pull the new image, apply pending EF Core migrations via the
   bundled `efbundle` executable, and roll out the API container. No runner agent is needed on the host.
+
+  The host sits behind CGNAT on its residential ISP, so there's no public IP to forward a router
+  port to — Tailscale's outbound-only connection sidesteps that entirely, both for this deploy
+  connection and for public API access (see [Docker](#docker) below).
 
 ### Setting up deployment
 
 **On the host machine (one-time):**
 
-1. Enable Windows OpenSSH Server (Settings → Optional Features → OpenSSH Server).
-2. Generate a dedicated Ed25519 key pair for CI:
+1. Install [Tailscale](https://tailscale.com) and join it to the project's tailnet (`tailscale up`).
+2. Enable Windows OpenSSH Server (Settings → Optional Features → OpenSSH Server).
+3. Generate a dedicated Ed25519 key pair for CI:
 
    ```bash
    ssh-keygen -t ed25519 -f deploy_key -C "github-deploy"
    ```
 
-3. Add the public key (`deploy_key.pub`) to `C:\Users\<user>\.ssh\authorized_keys` on the host.
-4. Ensure Docker Desktop is running on the host; `docker` must be in PATH for the SSH user.
+4. Add the public key (`deploy_key.pub`) to `C:\Users\<user>\.ssh\authorized_keys` on the host.
+5. Create a Tailscale OAuth client (admin console → Settings → OAuth clients) scoped to a `tag:ci`
+   tag, and add that tag to the tailnet's ACL policy if it isn't defined yet.
+6. Ensure Docker Desktop is running on the host; `docker` must be in PATH for the SSH user.
+7. Run `tailscale funnel --bg 8080` once to publish the API at `https://<host>.<tailnet>.ts.net`
+   over HTTPS (Tailscale handles TLS termination and renewal automatically).
 
 **In GitHub (Settings → Secrets and variables → Actions):**
 
@@ -163,6 +173,8 @@ Add the following **secrets**:
 | Secret | Value |
 |---|---|
 | `DEPLOY_SSH_KEY` | Contents of the `deploy_key` private key file |
+| `TS_OAUTH_CLIENT_ID` | Tailscale OAuth client ID (scoped to `tag:ci`) |
+| `TS_OAUTH_SECRET` | Tailscale OAuth client secret |
 | `POSTGRES_DB` | Postgres database name |
 | `POSTGRES_USER` | Postgres user |
 | `POSTGRES_PASSWORD` | Postgres password |
@@ -184,8 +196,8 @@ Add the following **variables** (non-sensitive):
 
 | Variable | Value |
 |---|---|
-| `DEPLOY_HOST` | Host public IP or domain |
-| `DEPLOY_SSH_PORT` | SSH port (typically `22`) |
+| `DEPLOY_HOST` | Host's Tailscale IP (`100.x.y.z`) or MagicDNS name — not a public IP/domain |
+| `DEPLOY_SSH_PORT` | `22` (real SSH port; traffic never touches the public internet) |
 | `DEPLOY_SSH_USER` | Windows user account name |
 | `LEADERBOARD_WIN_RATE_MIN_MATCHES` | Min matches for win-rate ranking (default `10`) |
 | `MAINTENANCE_PURGE_INTERVAL_HOURS` | Purge interval in hours (default `24`) |
@@ -196,8 +208,9 @@ deployment protection rules (required reviewers, wait timers, etc.) — the depl
 
 ## Docker
 
-A multi-stage `Dockerfile` is included at the repo root. The image listens on **HTTP port 8080**; TLS
-termination is expected to be handled by the reverse proxy or load balancer in front of it.
+A multi-stage `Dockerfile` is included at the repo root. The image listens on **HTTP port 8080**; in
+production, TLS termination is handled by `tailscale funnel` on the host, not by the container itself
+(see [Setting up deployment](#setting-up-deployment)).
 
 The image ships with an `efbundle` self-contained EF Core migration executable alongside the API binary.
 The `docker-compose.yml` at the repo root uses this to apply migrations in a one-off `migrate` service

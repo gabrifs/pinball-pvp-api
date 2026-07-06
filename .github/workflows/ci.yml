@@ -64,15 +64,22 @@ jobs:
 
   # ── Deploy ────────────────────────────────────────────────────────────────────
   # Runs on a GitHub-hosted runner and deploys to the Windows PC via Docker's SSH
-  # context backend — the runner drives the remote Docker daemon over an SSH tunnel.
+  # context backend, tunneled entirely over Tailscale — the host has no inbound
+  # ports open to the public internet (its residential ISP uses CGNAT, which
+  # makes that impossible anyway; Tailscale's outbound-only connection sidesteps
+  # it). The api service itself is separately published to the internet on the
+  # host via `tailscale funnel` (see .claude/Contexts/deployment.md), not through
+  # anything in this workflow.
   # Prerequisites on the host:
-  #   1. Enable Windows OpenSSH Server (Settings → Optional Features → OpenSSH Server).
-  #   2. Generate an Ed25519 key pair and add the public key to
+  #   1. Install Tailscale on the host and join it to this project's tailnet.
+  #   2. Enable Windows OpenSSH Server (Settings → Optional Features → OpenSSH Server).
+  #   3. Generate an Ed25519 key pair and add the public key to
   #      C:\Users\<user>\.ssh\authorized_keys on the host.
-  #   3. Set DEPLOY_SSH_KEY (secret), DEPLOY_HOST, DEPLOY_SSH_PORT, DEPLOY_SSH_USER
-  #      in Settings → Secrets and variables → Actions.
-  #   4. Set all app secrets listed in the step env blocks below.
-  #   5. Docker Desktop must be running on the host; docker must be in PATH for the
+  #   4. Set DEPLOY_SSH_KEY (secret), DEPLOY_HOST (host's Tailscale IP or MagicDNS
+  #      name), DEPLOY_SSH_PORT (22), DEPLOY_SSH_USER, TS_OAUTH_CLIENT_ID,
+  #      TS_OAUTH_SECRET in Settings → Secrets and variables → Actions.
+  #   5. Set all app secrets listed in the step env blocks below.
+  #   6. Docker Desktop must be running on the host; docker must be in PATH for the
   #      SSH user (Docker Desktop ensures this).
   deploy:
     needs: docker
@@ -81,6 +88,13 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
 
       - name: Compute image tag
         id: tag
