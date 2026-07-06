@@ -31,8 +31,15 @@ RUN dotnet ef migrations bundle \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# The base image ships a built-in non-root user (app, $APP_UID) since .NET 8 —
-# no need to create one, and the current base image no longer includes adduser/useradd anyway.
+# The base image ships a built-in non-root user (app, $APP_UID) since .NET 8 — no need to
+# create one (and the current base image drops the `adduser` wrapper anyway, only `useradd`).
+#
+# curl isn't included by default either; installed here since docker-compose's healthcheck
+# for this service relies on it. Must happen as root, before switching to $APP_UID below.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
 
 USER $APP_UID
