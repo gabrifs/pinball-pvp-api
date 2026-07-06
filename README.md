@@ -7,8 +7,6 @@ A REST API backing a Unity **head-to-head pinball game**, built with **ASP.NET C
 player-vs-player) matches, and maintains an aggregated player record (wins, losses and highscores) for
 each player — the foundation for the in-game leaderboards.
 
-> Looking for what's left before this is production-ready? See [TODO.md](TODO.md).
-
 ## Features
 
 - **User accounts & authentication** — registration with unique usernames, nicknames and emails,
@@ -232,9 +230,19 @@ This starts Postgres (`db`), applies pending migrations (`migrate`), then starts
 ### Database backups
 
 [`scripts/backup-database.ps1`](scripts/backup-database.ps1) runs on the host on a schedule (Windows
-Task Scheduler), dumping the database and mirroring backups to Google Drive via `rclone` — see
-[deployment.md](.claude/Contexts/deployment.md#database-backups) for one-time setup and the restore
-procedure.
+Task Scheduler), dumping the database and mirroring backups to Google Drive via `rclone`. On failure
+it emails an alert instead of failing silently.
+
+**One-time host setup** (full details, including the exact Task Scheduler registration command, in
+[deployment.md](.claude/Contexts/deployment.md#database-backups)):
+
+1. Install [rclone](https://rclone.org) and run `rclone config` to add a remote named `gdrive`.
+2. Set these machine-level environment variables on the host (not GitHub secrets — this script runs
+   outside of any GitHub Actions workflow, so it can't read those):
+   - `BACKUP_ALERT_SMTP_USERNAME` / `BACKUP_ALERT_SMTP_PASSWORD` — Gmail account/app password to send
+     failure alerts from (can reuse the API's own email account, or a different one).
+   - `BACKUP_ALERT_TO_ADDRESS` — where to send those alerts.
+3. Register the script in Task Scheduler to run daily.
 
 ### Manual container run (local testing)
 

@@ -191,17 +191,63 @@ regardless of the `host`-line auth method. The dump is written inside the contai
 with `docker cp` rather than piped through PowerShell's stdout pipeline, since PowerShell can
 silently alter line endings/add a BOM when capturing external process output as text.
 
+The whole script body runs inside a `try/catch`: on any failure it emails `BACKUP_ALERT_TO_ADDRESS`
+via Gmail SMTP, then re-throws so Task Scheduler still records a non-zero result even if the email
+itself can't be sent. All three alert-related values
+(`BACKUP_ALERT_SMTP_USERNAME`/`BACKUP_ALERT_SMTP_PASSWORD`/`BACKUP_ALERT_TO_ADDRESS`) are read from
+environment variables set at the machine level on the host — **not** GitHub Actions secrets, since
+this script runs entirely via Task Scheduler outside of any workflow run, so GitHub's secret store
+is simply unreachable from it. If any of the three are unset, a warning is printed and the script
+still fails loudly via its exit code, just without an email.
+
+**Non-ASCII characters (em dashes, curly quotes, etc.) must not be used in this script.** Windows
+PowerShell 5.1 reads `.ps1` files without a byte-order-mark using the system's ANSI codepage, not
+UTF-8 — on a non-English Windows install (this host is Portuguese-locale), an em dash silently
+corrupts into different bytes and breaks parsing with confusing, seemingly-unrelated errors several
+lines away from the actual character. This bit us once already during setup; keep the script pure
+ASCII rather than relying on encoding/BOM correctness across git/editors/locales.
+
 **One-time host setup:**
 
 1. Install [rclone](https://rclone.org) and run `rclone config` to add a remote named `gdrive`
    (interactive OAuth flow, opens a browser).
-2. Register the script in Task Scheduler to run daily, e.g.:
+
+2. Set the failure-alert environment variables at the machine level (SMTP credentials can reuse the
+   same Gmail account/app password already set up for the API's own `EMAIL_*` secrets, or a different
+   account — the two are unrelated):
 
    ```powershell
-   $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"C:\path\to\scripts\backup-database.ps1`""
-   $trigger = New-ScheduledTaskTrigger -Daily -At 3am
-   Register-ScheduledTask -TaskName "PinballPvP-DB-Backup" -Action $action -Trigger $trigger -RunLevel Highest
+   [Environment]::SetEnvironmentVariable("BACKUP_ALERT_SMTP_USERNAME", "<gmail-address>", "Machine")
+   [Environment]::SetEnvironmentVariable("BACKUP_ALERT_SMTP_PASSWORD", "<gmail-app-password>", "Machine")
+   [Environment]::SetEnvironmentVariable("BACKUP_ALERT_TO_ADDRESS", "<address-to-notify>", "Machine")
    ```
+
+3. Register the script in Task Scheduler to run daily. Deliberately no inner quotes around the
+   script path in `-Argument` below — it contains no spaces, and nesting quotes inside a native/task
+   command from PowerShell is fragile (this also bit us once already; see the `-N ""` and SSH
+   identity file issues from earlier in this project's setup, and `New-ScheduledTaskAction` silently
+   misparsed a quoted path into `WorkingDirectory` instead of `Arguments` the first time this was tried):
+
+   ```powershell
+   $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File C:\path\to\scripts\backup-database.ps1"
+   $trigger = New-ScheduledTaskTrigger -Daily -At 3am
+   $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+   Register-ScheduledTask -TaskName "PinballPvP-DB-Backup" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest
+   ```
+
+   `-StartWhenAvailable` catches up on a missed run if the host happens to be off/rebooting at the
+   scheduled time (e.g. during Windows Update), rather than silently skipping that day's backup.
+   `-ExecutionTimeLimit` kills the task if `docker`/`rclone` ever hangs, instead of leaving it running
+   indefinitely.
+
+   Verify the registration actually took the path correctly before relying on it:
+
+   ```powershell
+   (Get-ScheduledTask -TaskName "PinballPvP-DB-Backup").Actions
+   ```
+
+   `Arguments` should show the full `-ExecutionPolicy Bypass -File C:\...\backup-database.ps1` as one
+   piece, and `WorkingDirectory` should be empty.
 
 **Restore procedure** (verified working during implementation — plain SQL dump, restored via `psql`,
 not `pg_restore`, since the dump isn't in custom/compressed format):
