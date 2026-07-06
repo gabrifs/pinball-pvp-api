@@ -5,9 +5,5 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Deployment
 
-- Small tweak for forcing update
-
-- [ ] **Database backups** — once Postgres is self-hosted as a docker-compose container, it
-  becomes the permanent home for production player data with no managed backups; a host disk
-  failure would mean total data loss. Plan and implement a backup strategy (e.g. scheduled
-  `pg_dump` of the `pgdata` volume to an external/offsite location).
+Nothing outstanding — see [deployment.md](.claude/Contexts/deployment.md) for the full architecture
+(Tailscale-based deploy + Funnel exposure, and the scheduled backup script).
