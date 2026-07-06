@@ -37,14 +37,14 @@ New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 
 $dbContainer = docker ps --filter "label=com.docker.compose.service=db" --format "{{.Names}}" | Select-Object -First 1
 if (-not $dbContainer) {
-    throw "No running container found for the 'db' compose service — is the stack up?"
+    throw "No running container found for the 'db' compose service - is the stack up?"
 }
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupFile = Join-Path $BackupDir "pinballpvp_$timestamp.sql"
 $containerTempFile = "/tmp/pinballpvp_backup_$timestamp.sql"
 
-# Dump inside the container, then `docker cp` the file out directly — avoids PowerShell's
+# Dump inside the container, then `docker cp` the file out directly - avoids PowerShell's
 # pipeline re-encoding external process stdout (which can corrupt line endings/add a BOM).
 # Deliberately unquoted $POSTGRES_USER/$POSTGRES_DB in the inner sh command: both are simple
 # identifiers with no spaces, and nesting quotes inside a native-command argument from PowerShell
@@ -60,7 +60,7 @@ Get-ChildItem -Path $BackupDir -Filter "pinballpvp_*.sql" |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetentionDays) } |
     Remove-Item -Force
 
-# Mirror to Google Drive — `sync` (not `copy`) also deletes remote files pruned locally above,
+# Mirror to Google Drive - `sync` (not `copy`) also deletes remote files pruned locally above,
 # so the remote copy never grows unbounded either.
 rclone sync $BackupDir $RcloneRemote --create-empty-src-dirs
 
