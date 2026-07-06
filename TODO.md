@@ -5,6 +5,8 @@ production-ready backend for the Unity head-to-head pinball game. Items are grou
 
 ## Deployment
 
+- Small tweak for forcing update
+
 - [ ] **Database backups** — once Postgres is self-hosted as a docker-compose container, it
   becomes the permanent home for production player data with no managed backups; a host disk
   failure would mean total data loss. Plan and implement a backup strategy (e.g. scheduled
